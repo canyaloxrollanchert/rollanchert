@@ -250,10 +250,19 @@
     <canvas id="gameCanvas"></canvas>
 
     <script>
-        // Глобальные переменные
+        // --- 1. ПЕРЕМЕННЫЕ ИНТЕРФЕЙСА (ОБЪЯВЛЕНЫ В НАЧАЛЕ, ЧТОБЫ НЕ БЫЛО ОШИБОК) ---
+        const chatContainer = document.getElementById('ai-chat-container');
+        const chatInput = document.getElementById('ai-input');
+        const sendBtn = document.getElementById('ai-send-btn');
+        const msgContainer = document.getElementById('ai-messages');
+        const toggleIcon = document.getElementById('chat-toggle-icon');
+
+        // Глобальные переменные игры
         let currentHeroType = 'robot'; 
         let isChatting = false;
 
+        // --- 2. ФУНКЦИИ ИНТЕРФЕЙСА (ДОСТУПНЫ СРАЗУ) ---
+        
         window.selectHero = function(type) {
             currentHeroType = type;
             const cards = document.querySelectorAll('.hero-card');
@@ -262,7 +271,25 @@
             if(type === 'robot') cards[1].classList.add('selected');
         }
 
-        // --- ДВИЖОК СПРАЙТОВ ---
+        window.toggleChat = function() {
+            chatContainer.classList.toggle('chat-minimized');
+            if (chatContainer.classList.contains('chat-minimized')) {
+                toggleIcon.innerText = '+';
+            } else {
+                toggleIcon.innerText = '-';
+            }
+        }
+
+        function addMessage(text, type) {
+            const div = document.createElement('div');
+            div.className = `msg ${type}`;
+            div.innerText = text;
+            msgContainer.appendChild(div);
+            msgContainer.scrollTop = msgContainer.scrollHeight;
+        }
+
+        // --- 3. ИГРОВОЙ ДВИЖОК ---
+
         class SpriteLayer {
             constructor(src, cols, rows) {
                 this.image = new Image();
@@ -425,7 +452,7 @@
         };
         Assets.init();
 
-        // --- ИГРА ---
+        // --- ЛОГИКА ИГРЫ ---
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         let width, height;
@@ -692,33 +719,99 @@
             requestAnimationFrame(() => { update(); draw(); });
         }
 
-        // --- AI ЛОГИКА (ПОЛИНА) ---
-        const chatInput = document.getElementById('ai-input');
-        const sendBtn = document.getElementById('ai-send-btn');
-        const msgContainer = document.getElementById('ai-messages');
-        const chatContainer = document.getElementById('ai-chat-container');
-        const toggleIcon = document.getElementById('chat-toggle-icon');
+        function useUltimate() {
+            const aimAngle = Math.atan2(mouse.y - height/2, mouse.x - width/2);
+            let stoneCount = 10 + player.ultiLevel * 5; 
+            for (let i = 0; i < stoneCount; i++) {
+                const angleOffset = (Math.random() - 0.5) * Math.PI / 3;
+                const spd = 10 + Math.random() * 10;
+                let type = currentHeroType === 'robot' ? 'plasma' : 'stone';
+                projectiles.push({
+                    x: player.x, y: player.y, vx: Math.cos(aimAngle+angleOffset)*spd, vy: Math.sin(aimAngle+angleOffset)*spd, life: 100, type: type
+                });
+            }
+        }
+        
+        function buyAbility(type) {
+            let max = type === 'health' ? 3 : 5;
+            let current = player[`${type}Level`];
+            let cost = abilityCosts[type][current];
+            if (current < max && score >= cost) {
+                score -= cost; player[`${type}Level`]++;
+                document.getElementById('money-display').innerText = score;
+                updateShopUI(); applyAbilityEffects();
+            }
+        }
+        
+        function updateShopUI() {
+            document.getElementById('speed-level').innerText = player.speedLevel;
+            document.getElementById('damage-level').innerText = player.damageLevel;
+            document.getElementById('health-level').innerText = player.healthLevel;
+            document.getElementById('ulti-level').innerText = player.ultiLevel;
+            
+            const updateBtn = (type, lvl, max) => {
+                const btn = document.querySelector(`.buy-${type}`);
+                const costSpan = document.getElementById(`${type}-cost`);
+                if (lvl >= max) {
+                    costSpan.innerText = 'MAX'; btn.disabled = true; btn.classList.add('bg-gray-500');
+                } else {
+                    let cost = abilityCosts[type][lvl];
+                    costSpan.innerText = cost;
+                    btn.disabled = score < cost;
+                    if(score < cost) btn.classList.add('bg-gray-500'); else btn.classList.remove('bg-gray-500');
+                }
+            };
+            updateBtn('speed', player.speedLevel, 5);
+            updateBtn('damage', player.damageLevel, 5);
+            updateBtn('health', player.healthLevel, 3);
+            updateBtn('ulti', player.ultiLevel, 5);
+        }
+        
+        function applyAbilityEffects() {
+            player.speed = player.baseSpeed * (1 + player.speedLevel * 0.2);
+            player.slideSpeed = 6 * (1 + player.speedLevel * 0.2);
+            player.maxLives = 3 + player.healthLevel;
+            if (player.lives < player.maxLives) { player.lives = player.maxLives; updateLivesUI(); }
+            
+            ['speed', 'damage', 'health', 'ulti'].forEach(t => {
+                let ind = document.getElementById(`${t}-indicator`);
+                if(player[`${t}Level`] > 0) {
+                    ind.classList.remove('hidden');
+                    document.getElementById(`${t}-level-indicator`).innerText = player[`${t}Level`];
+                }
+            });
+        }
+        
+        function startGame() {
+            Assets.player = new PlayerSprite(currentHeroType); 
 
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('game-over').classList.add('hidden');
+            document.getElementById('hud-layer').classList.remove('hidden');
+            document.getElementById('ai-chat-container').classList.remove('hidden'); 
+            
+            const names = { adventurer: 'ИСКАТЕЛЬ', robot: 'РОБОТ' };
+            document.getElementById('hero-display').innerText = names[currentHeroType];
+            
+            gameState = 'PLAYING';
+            player.x = 0; player.y = 0;
+            player.lives = 3; player.maxLives = 3; player.invulnerable = 0;
+            player.speedLevel = 0; player.damageLevel = 0; player.healthLevel = 0; player.ultiLevel = 0;
+            enemies = []; projectiles = []; score = 0;
+            
+            updateLivesUI();
+            document.getElementById('money-display').innerText = score;
+            updateShopUI(); applyAbilityEffects();
+            
+            if (spawnIntervalId) clearInterval(spawnIntervalId);
+            for(let i=0; i<5; i++) spawnEnemy();
+            spawnIntervalId = setInterval(spawnEnemy, 1500);
+        }
+
+        // --- 4. AI ЛОГИКА (ПОЛИНА) ---
         chatInput.addEventListener('focus', () => { isChatting = true; });
         chatInput.addEventListener('blur', () => { isChatting = false; });
         sendBtn.onclick = sendMessage;
-
-        function toggleChat() {
-            chatContainer.classList.toggle('chat-minimized');
-            if (chatContainer.classList.contains('chat-minimized')) {
-                toggleIcon.innerText = '+';
-            } else {
-                toggleIcon.innerText = '-';
-            }
-        }
-
-        function addMessage(text, type) {
-            const div = document.createElement('div');
-            div.className = `msg ${type}`;
-            div.innerText = text;
-            msgContainer.appendChild(div);
-            msgContainer.scrollTop = msgContainer.scrollHeight;
-        }
 
         async function sendMessage() {
             const text = chatInput.value.trim();
@@ -738,8 +831,11 @@
             Ты Полина, боевой робот из игры. 
             Твоя личность: 
             1. Ты "пикми" (pick-me girl): постоянно говоришь "я не такая как другие роботы", "ой, я такая неуклюжая с этой огромной пушкой", "посмотри, какая я маленькая, но сильная".
-            3. Твои советы бесполезны (например: "Стреляй в них, чтобы они умерли!", "Может просто улыбнемся им?").
-            4. Отвечай коротко (1-2 предложения), эмоционально и с ошибками, как глупенькая.
+            2. Ты невероятно сильная, но очень глупая и наивная. Ты путаешь тактику с косметикой.
+            3. Ты влюблена в игрока, называй его "семпай", "котик" или "мой герой".
+            4. Ты ревнуешь игрока к врагам (оркам).
+            5. Твои советы бесполезны (например: "Стреляй в них, чтобы они умерли!", "Может просто улыбнемся им?").
+            6. Отвечай коротко (1-2 предложения), эмоционально и с ошибками, как глупенькая.
             `;
 
             try {
