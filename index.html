@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ПОЛИНА КИЛЛЕР: ПИКМИ РОБОТ (FINAL VERSION)</title>
+    <title>ПОЛИНА КИЛЛЕР: ПИКМИ РОБОТ (HAND THROW UPDATE)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
@@ -61,7 +61,7 @@
         }
 
         #ai-chat-header {
-            background: #ec4899; /* Розовый для Полины */
+            background: #ec4899;
             border: 4px solid #fff;
             padding: 10px;
             color: #fff;
@@ -93,7 +93,7 @@
 
         .msg { margin-bottom: 8px; line-height: 1.4; word-wrap: break-word; }
         .msg.user { color: #60a5fa; text-align: right; }
-        .msg.ai { color: #f472b6; text-align: left; } /* Розовый текст для Полины */
+        .msg.ai { color: #f472b6; text-align: left; }
         .msg.system { color: #fbbf24; text-align: center; font-style: italic; }
 
         #ai-input-area {
@@ -133,7 +133,9 @@
     <div id="hud-layer" class="absolute top-0 left-0 w-full h-full pointer-events-none p-5 flex flex-col justify-between hidden z-10">
         <div class="flex justify-between items-start text-white pixel-font text-xs md:text-sm">
             <div>
-                <div class="text-yellow-400 mb-2">СЧЕТ: <span id="money-display">0</span></div>
+                <!-- ВЕРНУЛ ЭТАЖ И КЭШ ПОД НИМ -->
+                <div class="text-yellow-400 mb-2">ЭТАЖ: <span id="floor-display">1</span></div>
+                <div class="text-green-400">КЭШ: $<span id="money-display">0</span></div>
             </div>
             <div class="text-right">
                 <div id="lives-container" class="mb-2 text-red-500 text-xl tracking-widest">♥♥♥</div>
@@ -141,6 +143,7 @@
             </div>
         </div>
         
+        <!-- ИНДИКАТОРЫ И МАГАЗИН -->
         <div class="flex flex-col items-center pointer-events-auto" style="margin-bottom: 20px;">
             <div id="abilities-indicator" class="flex justify-center space-x-2 mb-4 gap-2">
                 <div id="speed-indicator" class="hidden w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white pixel-font text-xs"><span id="speed-level-indicator">0</span></div>
@@ -249,7 +252,7 @@
     <canvas id="gameCanvas"></canvas>
 
     <script>
-        // --- 0. ЗВУКОВОЙ ДВИЖОК (ПРОЦЕДУРНЫЙ) ---
+        // --- 0. ЗВУКОВОЙ ДВИЖОК ---
         const AudioEngine = {
             ctx: null,
             init: function() {
@@ -268,7 +271,6 @@
                 gain.connect(this.ctx.destination);
                 
                 if (type === 'shoot') {
-                    // Пиу!
                     osc.type = 'square';
                     osc.frequency.setValueAtTime(400, now);
                     osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
@@ -278,7 +280,6 @@
                     osc.stop(now + 0.1);
                 } 
                 else if (type === 'hit') {
-                    // Удар
                     osc.type = 'sawtooth';
                     osc.frequency.setValueAtTime(150, now);
                     osc.frequency.linearRampToValueAtTime(50, now + 0.1);
@@ -288,7 +289,6 @@
                     osc.stop(now + 0.1);
                 }
                 else if (type === 'explosion') {
-                    // Бабах
                     osc.type = 'sawtooth';
                     osc.frequency.setValueAtTime(100, now);
                     osc.frequency.exponentialRampToValueAtTime(10, now + 0.3);
@@ -298,7 +298,6 @@
                     osc.stop(now + 0.3);
                 }
                 else if (type === 'buy') {
-                    // Дзынь!
                     osc.type = 'sine';
                     osc.frequency.setValueAtTime(600, now);
                     osc.frequency.linearRampToValueAtTime(1200, now + 0.1);
@@ -360,16 +359,14 @@
             }
             update() {
                 this.timer++;
-                // Используем базу из первого слоя, даже если не загружен (логика кадров)
                 if (this.timer % this.speed === 0) {
                     this.currentFrame = (this.currentFrame + 1) % this.layers[0].cols;
                 }
             }
             draw(ctx, x, y, size, angleToPlayer, isHurt) {
-                // Если картинки не загрузились - рисуем круг
                 let anyLoaded = this.layers.some(l => l.loaded);
                 if (!anyLoaded) {
-                    ctx.fillStyle = isHurt ? 'white' : '#10b981'; // Зеленый орк
+                    ctx.fillStyle = isHurt ? 'white' : '#10b981';
                     ctx.beginPath(); ctx.arc(x, y, size/2, 0, Math.PI*2); ctx.fill();
                     return;
                 }
@@ -387,7 +384,6 @@
             }
         }
         
-        // --- ЧАСТИЦЫ (КРОВЬ / ВЗРЫВЫ) ---
         class Particle {
             constructor(x, y, color) {
                 this.x = x; this.y = y;
@@ -484,33 +480,50 @@
                 ctx.save();
                 ctx.translate(x, y);
 
-                // ЗАГЛУШКА, ЕСЛИ КАРТИНКИ НЕТ
+                // Тело
                 if (!frame || !frame.loaded || frame.naturalWidth === 0) {
                     ctx.fillStyle = this.heroType === 'robot' ? '#a855f7' : '#3b82f6';
-                    ctx.fillRect(-size/2 + 15, -size/2, 30, 50); // Прямоугольник вместо героя
+                    ctx.fillRect(-size/2 + 15, -size/2, 30, 50); 
                 } else {
                     if (isLeft) ctx.scale(-1, 1);
                     ctx.drawImage(frame, -size/2, -size/2 - 10, size, size); 
                 }
                 ctx.restore();
 
-                // Рука (Робот)
-                if (this.heroType === 'robot') {
-                    const gunReady = Assets.robotGun.complete && Assets.robotGun.naturalWidth !== 0;
-                    ctx.save();
-                    ctx.translate(x, y - 12); 
-                    ctx.rotate(angleToPlayer);
-                    if (isLeft) ctx.scale(1, -1);
+                // === АНИМАЦИЯ РУКИ (БРОСОК) ===
+                // Мы больше не рисуем gun.png. Мы рисуем процедурную руку.
+                ctx.save();
+                ctx.translate(x, y); // Центр игрока
+                
+                // Смещаем руку чуть ниже центра
+                ctx.translate(0, 5);
+                
+                ctx.rotate(angleToPlayer);
 
-                    if (gunReady) {
-                        ctx.drawImage(Assets.robotJoint, -6, -6, 12, 12);
-                        ctx.drawImage(Assets.robotGun, 10, -10, 40, 20);
-                    } else {
-                        ctx.fillStyle = '#60a5fa'; 
-                        ctx.fillRect(0, -5, 30, 8);
-                    }
-                    ctx.restore();
+                // Если игрок атакует, рука вылетает вперед
+                let handDistance = 20; // Обычное положение
+                if (player.attacking) {
+                     // Простая анимация "выброса"
+                     handDistance = 35;
                 }
+
+                // Рисуем руку (кружочек)
+                ctx.fillStyle = this.heroType === 'robot' ? '#c084fc' : '#fca5a5'; // Фиолетовая или телесная
+                if (this.heroType === 'robot') ctx.fillStyle = '#a855f7';
+
+                ctx.beginPath();
+                ctx.arc(handDistance, 0, 7, 0, Math.PI*2); // Рука
+                ctx.fill();
+                
+                // Плечо (линия от тела до руки)
+                ctx.strokeStyle = ctx.fillStyle;
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(handDistance, 0);
+                ctx.stroke();
+
+                ctx.restore();
             }
         }
 
@@ -519,8 +532,6 @@
             orc: null,
             floor: new Image(),
             stone: new Image(),
-            robotJoint: new Image(),
-            robotGun: new Image(),
             plasmaBullet: new Image(),
             
             init: function() {
@@ -533,8 +544,6 @@
                 
                 this.floor.src = 'img/floor.png';
                 this.stone.src = 'img/weapons/stone.png';
-                this.robotJoint.src = 'img/player2/robot_joint.png'; 
-                this.robotGun.src = 'img/player2/robot_gun.png';     
                 this.plasmaBullet.src = 'img/player2/bullet_plasma.png'; 
             }
         };
@@ -587,8 +596,10 @@
             if (isChatting) return;
             keys[e.key.toLowerCase()] = true;
             if (e.key === 'Escape') togglePause();
+            // УЛЬТА (F)
             if (e.key.toLowerCase() === 'f' && gameState === 'PLAYING' && ultCooldown <= 0) {
-                useUltimate(); ultCooldown = ultCooldownMax;
+                useUltimate(); 
+                ultCooldown = ultCooldownMax;
             }
             if (e.key.toLowerCase() === 'c' && gameState === 'PLAYING') document.getElementById('shop-modal').classList.remove('hidden');
         });
@@ -612,10 +623,10 @@
                 if (currentTime - player.lastThrowTime < cooldown) return;
                 
                 player.attacking = true;
-                setTimeout(() => { player.attacking = false; }, 300);
+                setTimeout(() => { player.attacking = false; }, 200); // Быстрая анимация броска
                 
-                AudioEngine.play('shoot'); // ЗВУК
-                screenShake = 3; // ТРЯСКА
+                AudioEngine.play('shoot'); 
+                screenShake = 3; 
 
                 const angle = Math.atan2(mouse.y - height/2, mouse.x - width/2);
                 let projType = currentHeroType === 'robot' ? 'plasma' : 'stone';
@@ -623,7 +634,7 @@
                 
                 projectiles.push({ 
                     x: player.x, 
-                    y: player.y - 15, 
+                    y: player.y, 
                     vx: Math.cos(angle) * projSpeed, 
                     vy: Math.sin(angle) * projSpeed, 
                     life: 100, 
@@ -671,7 +682,7 @@
             if(gameState !== 'PLAYING') return;
             const angle = Math.random() * Math.PI * 2;
             const dist = 900;
-            const type = Math.random() > 0.7 ? 'imp' : 'orc'; // 30% шанс на быстрого
+            const type = Math.random() > 0.7 ? 'imp' : 'orc'; 
             
             enemies.push({
                 x: player.x + Math.cos(angle) * dist,
@@ -686,7 +697,6 @@
         function update() {
             if (gameState !== 'PLAYING') return;
 
-            // Тряска затухает
             if (screenShake > 0) screenShake *= 0.9;
 
             let dx = 0, dy = 0;
@@ -750,13 +760,11 @@
                     if (Math.hypot(p.x - e.x, p.y - e.y) < 30) {
                         e.hp -= 10 * (1 + player.damageLevel * 0.25);
                         
-                        // Эффект попадания
                         AudioEngine.play('hit');
                         for(let k=0; k<3; k++) particles.push(new Particle(e.x, e.y, e.type === 'imp' ? '#ff0000' : '#10b981'));
 
                         projectiles.splice(j, 1);
                         if (e.hp <= 0) { 
-                            // СМЕРТЬ ВРАГА
                             AudioEngine.play('explosion');
                             screenShake = 10;
                             for(let k=0; k<15; k++) particles.push(new Particle(e.x, e.y, e.type === 'imp' ? '#991b1b' : '#064e3b'));
@@ -765,7 +773,6 @@
                             score += e.type === 'imp' ? 200 : 100; 
                             document.getElementById('money-display').innerText = score; 
 
-                            // AI РЕАКЦИЯ НА УБИЙСТВА
                             if (score % 1000 === 0) triggerAiReaction("Игрок набрал кучу очков и убивает всех подряд.");
                         }
                         break;
@@ -817,26 +824,21 @@
             if (Assets.player) Assets.player.draw(ctx, player.x, player.y, 64, aimAngle);
             ctx.globalAlpha = 1;
 
-            // Частицы (кровь на полу)
+            // Частицы
             particles.forEach(p => p.draw(ctx));
 
             // Враги
             enemies.forEach(e => {
-                // Тень
                 ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(e.x, e.y+15, 15, 8, 0, 0, Math.PI*2); ctx.fill();
                 
                 if (e.type === 'imp') {
-                    // Мелкий бес (Заглушка или код если была бы картинка)
                     ctx.fillStyle = '#ef4444'; // Красный
                     ctx.beginPath(); ctx.arc(e.x, e.y, 15, 0, Math.PI*2); ctx.fill();
-                    // Глаза
                     ctx.fillStyle = 'yellow'; ctx.fillRect(e.x-5, e.y-5, 4, 4); ctx.fillRect(e.x+2, e.y-5, 4, 4);
                 } else {
-                    // Орк
                     Assets.orc.draw(ctx, e.x, e.y, 96, e.angle, e.invulnerable > 0);
                 }
                 
-                // HP Bar
                 const hpPercent = Math.max(0, e.hp / e.maxHp);
                 ctx.fillStyle = 'black'; ctx.fillRect(e.x - 20, e.y - 50, 40, 6);
                 ctx.fillStyle = e.type === 'imp' ? '#fbbf24' : '#ef4444'; ctx.fillRect(e.x - 20, e.y - 50, 40 * hpPercent, 6);
@@ -858,13 +860,22 @@
 
             ctx.restore();
             
-            // UI Кулдаунов
+            // UI Кулдаунов (ВИЗУАЛИЗАЦИЯ УЛЬТЫ)
             if (ultCooldown > 0) {
                 const x = width - 120, y = 60;
                 ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(x, y, 100, 10);
                 ctx.fillStyle = '#eab308'; ctx.fillRect(x, y, 100 * (ultCooldown/ultCooldownMax), 10);
                 ctx.fillStyle = '#fff'; ctx.font = '10px "Press Start 2P"'; ctx.fillText('УЛЬТА', x+25, y-5);
+            } else {
+                // Если ульта готова - мигает надпись
+                const x = width - 120, y = 60;
+                if (Math.floor(Date.now() / 500) % 2 === 0) {
+                    ctx.fillStyle = '#4ade80'; 
+                    ctx.font = '10px "Press Start 2P"'; 
+                    ctx.fillText('УЛЬТА ГОТОВА (F)', x-10, y-5);
+                }
             }
+            
             if (player.slideCooldown > 0) {
                 const x = width - 120, y = 100;
                 ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(x, y, 100, 10);
@@ -875,6 +886,7 @@
             requestAnimationFrame(() => { update(); draw(); });
         }
 
+        // --- ФУНКЦИЯ УЛЬТЫ ---
         function useUltimate() {
             const aimAngle = Math.atan2(mouse.y - height/2, mouse.x - width/2);
             let stoneCount = 10 + player.ultiLevel * 5; 
@@ -980,7 +992,6 @@
         let isAiProcessing = false;
 
         async function triggerAiReaction(context) {
-            // Шанс 30%, что она ответит сама, чтобы не спамить
             if (isAiProcessing || Math.random() > 0.4) return;
             
             const loadingMsg = document.createElement('div');
