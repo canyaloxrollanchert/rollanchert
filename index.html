@@ -80,7 +80,6 @@
             border-top: none;
             height: 300px;
             display: flex;
-            flex-col: column;
             flex-direction: column;
         }
 
@@ -94,10 +93,11 @@
             scrollbar-color: #eab308 #1f2937;
         }
 
-        .msg { margin-bottom: 8px; line-height: 1.4; }
+        .msg { margin-bottom: 8px; line-height: 1.4; word-wrap: break-word; }
         .msg.user { color: #60a5fa; text-align: right; }
         .msg.ai { color: #4ade80; text-align: left; }
         .msg.system { color: #fbbf24; text-align: center; font-style: italic; }
+        .msg.error { color: #ef4444; text-align: center; font-weight: bold; }
 
         #ai-input-area {
             display: flex;
@@ -111,7 +111,7 @@
             border: 2px solid #6b7280;
             color: white;
             padding: 5px;
-            font-family: 'Courier New', monospace; /* Читабельнее для ввода */
+            font-family: 'Courier New', monospace;
             font-size: 12px;
             outline: none;
         }
@@ -815,8 +815,12 @@
 
         // --- AI CHAT LOGIC ---
         const API_KEY = "sk-J1RBtZ2W9WlK696dUKefLGDIkKhArAL4cEiohNk0eKcKPQ9L";
-        const API_URL = "https://api.agentrouter.ai/v1/chat/completions"; // Стандартный путь для AgentRouter
-        const MODEL = "google/gemma-2-9b-it:free"; // Бесплатная или дешевая модель
+        
+        // !!! ИСПРАВЛЕННЫЙ URL ДЛЯ AGENTROUTER !!!
+        const API_URL = "https://agentrouter.org/v1/chat/completions"; 
+        
+        // Используем gpt-4o-mini, она дешевая и поддерживается большинством роутеров
+        const MODEL = "gpt-4o-mini"; 
 
         const chatInput = document.getElementById('ai-input');
         const sendBtn = document.getElementById('ai-send-btn');
@@ -852,25 +856,26 @@
 
             addMessage(text, 'user');
             chatInput.value = '';
-            addMessage('...', 'system'); // Loading
+            
+            const loadingMsg = document.createElement('div');
+            loadingMsg.className = 'msg system';
+            loadingMsg.innerText = '...';
+            msgContainer.appendChild(loadingMsg);
+            msgContainer.scrollTop = msgContainer.scrollHeight;
 
             const systemPrompt = `Ты тактический советник в игре "Полина Киллер". Игрок играет за ${currentHeroType === 'robot' ? 'Робота' : 'Искателя'}. 
-            Твоя задача - давать краткие (1-2 предложения) советы по тактике, напоминать про магазин (клавиша C) и ульту (клавиша F), подбадривать. 
-            Стиль: киберпанк, военный, ретро.`;
+            Твоя задача - давать краткие (1-2 предложения) советы по тактике, напоминать про магазин (клавиша C) и ульту (клавиша F). 
+            Стиль: киберпанк, военный, ретро. Отвечай коротко.`;
 
             try {
-                // Если URL agentrouter другой, поменяй его здесь. Обычно они совместимы с OpenAI.
-                // Если не работает, попробуй base url: https://api.crystalsound.ai/v1 или просто https://api.openai.com/v1 если это прокси.
-                // Использую стандартный формат.
-                
-                const response = await fetch("https://api.agentrouter.io/v1/chat/completions", { // Предполагаемый URL
+                const response = await fetch(API_URL, {
                     method: "POST",
                     headers: {
                         "Authorization": `Bearer ${API_KEY}`,
                         "Content-Type": "application/json"
                     },
                     body: JSON.stringify({
-                        model: "google/gemma-2-9b-it", // Или gemma-2-9b-it:free
+                        model: MODEL,
                         messages: [
                             { role: "system", content: systemPrompt },
                             { role: "user", content: text }
@@ -878,21 +883,25 @@
                     })
                 });
 
-                // Удаляем индикатор загрузки
-                msgContainer.lastChild.remove();
+                loadingMsg.remove();
 
                 if (response.ok) {
                     const data = await response.json();
-                    const aiText = data.choices[0].message.content;
-                    addMessage(aiText, 'ai');
+                    if(data.choices && data.choices.length > 0) {
+                        const aiText = data.choices[0].message.content;
+                        addMessage(aiText, 'ai');
+                    } else {
+                        addMessage("Пустой ответ от нейросети.", 'error');
+                    }
                 } else {
-                    addMessage("Ошибка связи с базой данных...", 'system');
-                    console.error('AI Error:', await response.text());
+                    const errText = await response.text();
+                    console.error("AI API Error:", errText);
+                    addMessage(`Ошибка сервера: ${response.status}`, 'error');
                 }
             } catch (error) {
-                if(msgContainer.lastChild.innerText === '...') msgContainer.lastChild.remove();
-                addMessage("Сбой подключения к нейросети.", 'system');
+                loadingMsg.remove();
                 console.error(error);
+                addMessage("Ошибка сети (проверь консоль F12)", 'error');
             }
         }
 
