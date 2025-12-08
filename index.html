@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ПОЛИНА КИЛЛЕР: ВОССТАНИЕ РОБОТА + AI</title>
+    <title>ПОЛИНА КИЛЛЕР: ВОССТАНИЕ РОБОТА</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
@@ -32,7 +32,7 @@
         
         .modal-overlay { background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(5px); }
         
-        /* СТИЛИ КАРТОЧЕК ГЕРОЕВ */
+        /* ГЕРОИ */
         .hero-card {
             border: 4px solid #4b5563;
             background: #1f2937;
@@ -49,9 +49,7 @@
             box-shadow: 0 0 15px rgba(74, 222, 128, 0.5);
         }
         
-        @keyframes damage-blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-
-        /* --- СТИЛИ AI ЧАТА --- */
+        /* ЧАТ */
         #ai-chat-container {
             position: absolute;
             bottom: 20px;
@@ -97,7 +95,6 @@
         .msg.user { color: #60a5fa; text-align: right; }
         .msg.ai { color: #4ade80; text-align: left; }
         .msg.system { color: #fbbf24; text-align: center; font-style: italic; }
-        .msg.error { color: #ef4444; text-align: center; font-weight: bold; }
 
         #ai-input-area {
             display: flex;
@@ -126,14 +123,13 @@
             margin-left: 5px;
             cursor: pointer;
         }
-        #ai-send-btn:active { transform: translate(1px, 1px); }
 
         .chat-minimized #ai-chat-body { display: none; }
     </style>
 </head>
 <body>
 
-    <!-- HUD LAYER -->
+    <!-- HUD -->
     <div id="hud-layer" class="absolute top-0 left-0 w-full h-full pointer-events-none p-5 flex flex-col justify-between hidden z-10">
         <div class="flex justify-between items-start text-white pixel-font text-xs md:text-sm">
             <div>
@@ -157,23 +153,24 @@
         </div>
     </div>
 
-    <!-- AI CHAT WIDGET -->
+    <!-- AI CHAT -->
     <div id="ai-chat-container" class="chat-minimized">
         <div id="ai-chat-header" onclick="toggleChat()">
-            <span>AI ПОМОЩНИК</span>
+            <span>ТАКТИЧЕСКИЙ AI</span>
             <span id="chat-toggle-icon">+</span>
         </div>
         <div id="ai-chat-body">
             <div id="ai-messages">
-                <div class="msg ai">Привет, боец! Я твой тактический ИИ. Нужен совет?</div>
+                <div class="msg ai">Связь установлена. Я готов помочь с тактикой. Спрашивай!</div>
             </div>
             <div id="ai-input-area">
-                <input type="text" id="ai-input" placeholder="Спроси тактику...">
+                <input type="text" id="ai-input" placeholder="Введите вопрос...">
                 <button id="ai-send-btn">></button>
             </div>
         </div>
     </div>
 
+    <!-- МАГАЗИН -->
     <div id="shop-modal" class="hidden absolute inset-0 z-50 modal-overlay flex flex-col items-center justify-center pointer-events-auto">
         <div class="bg-gray-800 p-6 rounded-lg border-4 border-white max-w-2xl w-full mx-4" style="max-height: 90vh; overflow-y: auto;">
             <h2 class="text-3xl text-yellow-400 pixel-font mb-6 text-center">МАГАЗИН</h2>
@@ -207,12 +204,14 @@
         </div>
     </div>
 
+    <!-- PAUSE -->
     <div id="pause-menu" class="hidden absolute inset-0 z-50 modal-overlay flex flex-col items-center justify-center pointer-events-auto">
         <h2 class="text-4xl text-yellow-400 pixel-font mb-8">ПАУЗА</h2>
         <button id="resume-btn" class="btn-retro mb-4 w-48 text-black">ПРОДОЛЖИТЬ</button>
         <button id="menu-btn" class="btn-retro w-48 bg-gray-500 text-black">В ГЛАВНОЕ МЕНЮ</button>
     </div>
 
+    <!-- START SCREEN -->
     <div id="start-screen" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 z-50">
         <h1 class="text-4xl md:text-6xl text-green-500 pixel-font mb-4 text-center">ПОЛИНА <br><span class="text-red-600">КИЛЛЕР</span></h1>
         
@@ -241,6 +240,7 @@
         <button id="start-btn" class="btn-retro px-8 py-4 text-black font-bold pixel-font text-sm">НАЧАТЬ ЗАЧИСТКУ</button>
     </div>
 
+    <!-- GAME OVER -->
     <div id="game-over" class="hidden absolute inset-0 z-50 bg-black flex flex-col items-center justify-center pointer-events-auto">
         <h2 class="text-5xl text-red-600 pixel-font mb-4">ПОТРАЧЕНО</h2>
         <p class="text-white pixel-font text-xs mb-8">СЧЕТ: <span id="final-score">0</span></p>
@@ -250,8 +250,9 @@
     <canvas id="gameCanvas"></canvas>
 
     <script>
-        // !!! СТАВИМ РОБОТА ПО УМОЛЧАНИЮ !!!
+        // Глобальные переменные
         let currentHeroType = 'robot'; 
+        let isChatting = false;
 
         window.selectHero = function(type) {
             currentHeroType = type;
@@ -361,22 +362,20 @@
                 if (!currentAnim || currentAnim.length === 0) return;
                 const frame = currentAnim[this.frameIndex % currentAnim.length];
                 
-                // ЗАЩИТА ОТ ОШИБОК: Если кадр не загрузился, не рисуем его и выходим
                 if (!frame || !frame.loaded || frame.naturalWidth === 0) return;
                 
                 let deg = angleToPlayer * 180 / Math.PI;
                 let isLeft = Math.abs(deg) > 90;
                 
-                // 1. Рисуем тело
+                // Тело
                 ctx.save();
                 ctx.translate(x, y);
                 if (isLeft) ctx.scale(-1, 1);
                 ctx.drawImage(frame, -size/2, -size/2 - 10, size, size); 
                 ctx.restore();
 
-                // 2. Рисуем РУКУ И ОРУЖИЕ (ТОЛЬКО ДЛЯ РОБОТА)
+                // Рука (Робот)
                 if (this.heroType === 'robot') {
-                    // Проверка загрузки
                     const gunReady = Assets.robotGun.complete && Assets.robotGun.naturalWidth !== 0;
                     const jointReady = Assets.robotJoint.complete && Assets.robotJoint.naturalWidth !== 0;
 
@@ -385,16 +384,14 @@
                     ctx.rotate(angleToPlayer);
                     if (isLeft) ctx.scale(1, -1);
 
-                    // Если картинки есть - рисуем их
                     if (jointReady && gunReady) {
-                        ctx.drawImage(Assets.robotJoint, -6, -6, 12, 12); // Сустав чуть поменьше
+                        ctx.drawImage(Assets.robotJoint, -6, -6, 12, 12);
                         ctx.drawImage(Assets.robotGun, 10, -10, 40, 20);
                     } else {
-                        // АВАРИЙНЫЙ РЕЖИМ: Если картинки не найдены, рисуем КРАСНУЮ ПАЛКУ
-                        ctx.fillStyle = 'red';
-                        ctx.fillRect(0, -5, 40, 10);
+                        // Фолбек если картинка не загрузилась
+                        ctx.fillStyle = '#60a5fa'; // Синяя палка вместо красной
+                        ctx.fillRect(0, -5, 30, 8);
                     }
-                    
                     ctx.restore();
                 }
             }
@@ -406,8 +403,6 @@
             player: null,
             floor: new Image(),
             stone: new Image(),
-            
-            // Новые ассеты робота
             robotJoint: new Image(),
             robotGun: new Image(),
             plasmaBullet: new Image(),
@@ -423,12 +418,10 @@
                 this.floor.src = 'img/floor.png';
                 this.stone.src = 'img/weapons/stone.png';
 
-                // --- ФИКС ИМЕН ФАЙЛОВ ДЛЯ РОБОТА (ТАК У ТЕБЯ В ПАПКЕ) ---
-                // Твои файлы называются с двойным .png.png - Windows шутит!
-                
-                this.robotJoint.src = 'img/player2/robot_joint.png.png'; 
-                this.robotGun.src = 'img/player2/robot_gun.png.png';     
-                this.plasmaBullet.src = 'img/player2/bullet_plasma.png.png'; 
+                // !!! ИСПРАВЛЕННЫЕ ПУТИ (убрал двойное .png) !!!
+                this.robotJoint.src = 'img/player2/robot_joint.png'; 
+                this.robotGun.src = 'img/player2/robot_gun.png';     
+                this.plasmaBullet.src = 'img/player2/bullet_plasma.png'; 
             }
         };
         Assets.init();
@@ -438,7 +431,6 @@
         const ctx = canvas.getContext('2d');
         let width, height;
         let gameState = 'MENU';
-        let isChatting = false; // Флаг: печатаем ли мы в чате
         
         const player = {
             x: 0, y: 0,
@@ -475,10 +467,8 @@
         window.addEventListener('resize', resize);
         resize();
 
-        // Управление
         window.addEventListener('keydown', e => {
-            if (isChatting) return; // Не двигаться, если пишем в чат
-
+            if (isChatting) return; // Блок управления при чате
             keys[e.key.toLowerCase()] = true;
             if (e.key === 'Escape') togglePause();
             if (e.key.toLowerCase() === 'f' && gameState === 'PLAYING' && ultCooldown <= 0) {
@@ -488,7 +478,6 @@
         });
         window.addEventListener('keyup', e => {
             if (isChatting) {
-                // Если нажали Enter в чате
                 if(e.key === 'Enter') sendMessage();
                 return;
             }
@@ -496,16 +485,12 @@
         });
         window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
         
-        // СТРЕЛЬБА
         window.addEventListener('mousedown', (e) => {
-            // Если кликнули по чату или интерфейсу, не стрелять
             if (e.target.closest('#ai-chat-container') || e.target.closest('#hud-layer') || e.target.closest('.modal-overlay')) return;
 
             if (gameState === 'PLAYING') {
                 if (player.lastThrowTime === undefined) player.lastThrowTime = 0;
                 const currentTime = Date.now();
-                
-                // Робот стреляет быстрее
                 const cooldown = currentHeroType === 'robot' ? 300 : 800;
                 
                 if (currentTime - player.lastThrowTime < cooldown) return;
@@ -514,14 +499,12 @@
                 setTimeout(() => { player.attacking = false; }, 300);
                 
                 const angle = Math.atan2(mouse.y - height/2, mouse.x - width/2);
-                
-                // Настройки снаряда в зависимости от героя
                 let projType = currentHeroType === 'robot' ? 'plasma' : 'stone';
                 let projSpeed = currentHeroType === 'robot' ? 20 : 15;
                 
                 projectiles.push({ 
                     x: player.x, 
-                    y: player.y - 15, // Пуля летит примерно от плеча
+                    y: player.y - 15, 
                     vx: Math.cos(angle) * projSpeed, 
                     vy: Math.sin(angle) * projSpeed, 
                     life: 100, 
@@ -581,7 +564,6 @@
             if (gameState !== 'PLAYING') return;
 
             let dx = 0, dy = 0;
-            // Блокируем движение, если печатаем
             if (!isChatting) {
                 if (keys['w'] || keys['ц']) dy = -1;
                 if (keys['s'] || keys['ы']) dy = 1;
@@ -615,13 +597,11 @@
 
             if (Assets.player) Assets.player.update(player.moving, player.attacking, player.speed, player.isSliding);
 
-            // Пули
             for (let i = projectiles.length - 1; i >= 0; i--) {
                 let p = projectiles[i]; p.x += p.vx; p.y += p.vy; p.life--;
                 if (p.life <= 0) projectiles.splice(i, 1);
             }
 
-            // Враги
             Assets.orc.update();
             for (let i = enemies.length - 1; i >= 0; i--) {
                 let e = enemies[i];
@@ -630,7 +610,6 @@
                 e.y += Math.sin(angle) * e.speed;
                 e.angle = angle;
 
-                // Попадание по врагу
                 for (let j = projectiles.length - 1; j >= 0; j--) {
                     let p = projectiles[j];
                     if (Math.hypot(p.x - e.x, p.y - e.y) < 30) {
@@ -641,7 +620,6 @@
                     }
                 }
                 
-                // Урон по игроку
                 if (Math.hypot(player.x - e.x, player.y - e.y) < 35 && player.invulnerable <= 0) {
                     player.lives--;
                     player.invulnerable = 60;
@@ -659,7 +637,6 @@
         function draw() {
             ctx.fillStyle = '#222'; ctx.fillRect(0, 0, width, height);
             
-            // Фон
             ctx.save();
             ctx.translate(-camera.x % 128, -camera.y % 128);
             if (Assets.floor.complete && Assets.floor.naturalWidth !== 0) {
@@ -671,13 +648,11 @@
             ctx.save();
             ctx.translate(-camera.x, -camera.y);
 
-            // Игрок
             ctx.globalAlpha = (player.invulnerable > 0 && player.invulnerable % 10 < 5) ? 0.5 : 1;
             const aimAngle = Math.atan2(mouse.y - height/2, mouse.x - width/2);
             if (Assets.player) Assets.player.draw(ctx, player.x, player.y, 64, aimAngle);
             ctx.globalAlpha = 1;
 
-            // Враги
             enemies.forEach(e => {
                 ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(e.x, e.y+15, 15, 8, 0, 0, Math.PI*2); ctx.fill();
                 Assets.orc.draw(ctx, e.x, e.y, 96, e.angle);
@@ -687,25 +662,21 @@
                 ctx.fillStyle = '#ef4444'; ctx.fillRect(e.x - 20, e.y - 50, 40 * hpPercent, 6);
             });
 
-            // ОТРИСОВКА ПУЛЬ
             projectiles.forEach(p => {
-                // Если это камень (Искатель)
                 if (p.type === 'stone' && Assets.stone.complete) {
                     ctx.drawImage(Assets.stone, p.x - 10, p.y - 10, 20, 20);
                 } 
-                // Если это плазма (Робот)
                 else if (p.type === 'plasma' && Assets.plasmaBullet.complete && Assets.plasmaBullet.naturalWidth !== 0) {
                     ctx.drawImage(Assets.plasmaBullet, p.x - 12, p.y - 12, 24, 24);
                 }
-                // Заглушка (Желтый шарик, если картинки нет)
                 else { 
-                    ctx.fillStyle = '#fbbf24'; ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, Math.PI*2); ctx.fill(); 
+                    ctx.fillStyle = p.type === 'plasma' ? '#3b82f6' : '#fbbf24'; 
+                    ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, Math.PI*2); ctx.fill(); 
                 }
             });
 
             ctx.restore();
             
-            // HUD
             if (ultCooldown > 0) {
                 const x = width - 120, y = 60;
                 ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(x, y, 100, 10);
@@ -785,16 +756,14 @@
             });
         }
         
-        // --- СТАРТ ---
         function startGame() {
-            Assets.player = new PlayerSprite(currentHeroType); // Создаем выбранного героя
+            Assets.player = new PlayerSprite(currentHeroType); 
 
             document.getElementById('start-screen').classList.add('hidden');
             document.getElementById('game-over').classList.add('hidden');
             document.getElementById('hud-layer').classList.remove('hidden');
-            document.getElementById('ai-chat-container').classList.remove('hidden'); // Показываем чат
+            document.getElementById('ai-chat-container').classList.remove('hidden'); 
             
-            // Обновляем имя в интерфейсе
             const names = { adventurer: 'ИСКАТЕЛЬ', robot: 'РОБОТ' };
             document.getElementById('hero-display').innerText = names[currentHeroType];
             
@@ -813,22 +782,13 @@
             spawnIntervalId = setInterval(spawnEnemy, 1500);
         }
 
-        // --- AI CHAT LOGIC ---
-        const API_KEY = "sk-J1RBtZ2W9WlK696dUKefLGDIkKhArAL4cEiohNk0eKcKPQ9L";
-        
-        // !!! ИСПРАВЛЕННЫЙ URL ДЛЯ AGENTROUTER !!!
-        const API_URL = "https://agentrouter.org/v1/chat/completions"; 
-        
-        // Используем gpt-4o-mini, она дешевая и поддерживается большинством роутеров
-        const MODEL = "gpt-4o-mini"; 
-
+        // --- AI ЛОГИКА (POLLINATIONS.AI - БЕСПЛАТНО, БЕЗ КЛЮЧЕЙ) ---
         const chatInput = document.getElementById('ai-input');
         const sendBtn = document.getElementById('ai-send-btn');
         const msgContainer = document.getElementById('ai-messages');
         const chatContainer = document.getElementById('ai-chat-container');
         const toggleIcon = document.getElementById('chat-toggle-icon');
 
-        // Обработка фокуса (чтобы не ходить WASD когда пишешь)
         chatInput.addEventListener('focus', () => { isChatting = true; });
         chatInput.addEventListener('blur', () => { isChatting = false; });
         sendBtn.onclick = sendMessage;
@@ -863,45 +823,27 @@
             msgContainer.appendChild(loadingMsg);
             msgContainer.scrollTop = msgContainer.scrollHeight;
 
-            const systemPrompt = `Ты тактический советник в игре "Полина Киллер". Игрок играет за ${currentHeroType === 'robot' ? 'Робота' : 'Искателя'}. 
-            Твоя задача - давать краткие (1-2 предложения) советы по тактике, напоминать про магазин (клавиша C) и ульту (клавиша F). 
-            Стиль: киберпанк, военный, ретро. Отвечай коротко.`;
+            // Контекст для ИИ
+            const systemPrompt = `Ты тактический советник в игре "Полина Киллер". Советуй коротко (1-2 фразы). Игрок: ${currentHeroType}. Магазин на 'C', Ульта на 'F'. Твой стиль: военный инструктор.`;
 
             try {
-                const response = await fetch(API_URL, {
-                    method: "POST",
-                    headers: {
-                        "Authorization": `Bearer ${API_KEY}`,
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
-                        model: MODEL,
-                        messages: [
-                            { role: "system", content: systemPrompt },
-                            { role: "user", content: text }
-                        ]
-                    })
-                });
+                // Используем GET запрос к text.pollinations.ai (Бесплатный, работает в браузере)
+                // Формат URL: https://text.pollinations.ai/{PROMPT}
+                const prompt = encodeURIComponent(`${systemPrompt} Вопрос игрока: ${text}`);
+                const response = await fetch(`https://text.pollinations.ai/${prompt}`);
 
                 loadingMsg.remove();
 
                 if (response.ok) {
-                    const data = await response.json();
-                    if(data.choices && data.choices.length > 0) {
-                        const aiText = data.choices[0].message.content;
-                        addMessage(aiText, 'ai');
-                    } else {
-                        addMessage("Пустой ответ от нейросети.", 'error');
-                    }
+                    const aiText = await response.text();
+                    addMessage(aiText, 'ai');
                 } else {
-                    const errText = await response.text();
-                    console.error("AI API Error:", errText);
-                    addMessage(`Ошибка сервера: ${response.status}`, 'error');
+                    addMessage("Ошибка связи.", 'system');
                 }
             } catch (error) {
                 loadingMsg.remove();
+                addMessage("Нет сети.", 'system');
                 console.error(error);
-                addMessage("Ошибка сети (проверь консоль F12)", 'error');
             }
         }
 
