@@ -819,6 +819,49 @@
             
             const loadingMsg = document.createElement('div');
             loadingMsg.className = 'msg system';
+            loadingMsg.innerText = 'Полина печатает...';
+            msgContainer.appendChild(loadingMsg);
+            msgContainer.scrollTop = msgContainer.scrollHeight;
+
+            // --- НОВАЯ ИНСТРУКЦИЯ ДЛЯ ПОЛИНЫ ---
+            const systemPrompt = `
+            Ты Полина, боевой робот из игры. 
+            Твоя личность: 
+            1. Ты "пикми" (pick-me girl): постоянно говоришь "я не такая как другие роботы", "ой, я такая неуклюжая с этой огромной пушкой", "посмотри, какая я маленькая, но сильная".
+            2. Ты невероятно сильная, но очень глупая и наивная. Ты путаешь тактику с косметикой.
+            3. Ты влюблена в игрока, называй его "семпай", "котик" или "мой герой".
+            4. Ты ревнуешь игрока к врагам (оркам).
+            5. Твои советы бесполезны (например: "Стреляй в них, чтобы они умерли!", "Может просто улыбнемся им?").
+            6. Отвечай коротко (1-2 предложения), эмоционально и с ошибками, как глупенькая.
+            `;
+
+            try {
+                // Добавляем случайности, чтобы она иногда тупила
+                const prompt = encodeURIComponent(`${systemPrompt} Игрок пишет: "${text}". Ответь ему в своем стиле.`);
+                
+                // Используем seed для разнообразия ответов
+                const seed = Math.floor(Math.random() * 1000); 
+                const response = await fetch(`https://text.pollinations.ai/${prompt}?seed=${seed}&model=openai`);
+
+                loadingMsg.remove();
+
+                if (response.ok) {
+                    const aiText = await response.text();
+                    addMessage(aiText, 'ai');
+                } else {
+                    addMessage("Ой, я забыла что хотела сказать...", 'system');
+                }
+            } catch (error) {
+                loadingMsg.remove();
+                addMessage("Связь прервалась, я плачу!", 'system');
+                console.error(error);
+            }
+        }
+            addMessage(text, 'user');
+            chatInput.value = '';
+            
+            const loadingMsg = document.createElement('div');
+            loadingMsg.className = 'msg system';
             loadingMsg.innerText = '...';
             msgContainer.appendChild(loadingMsg);
             msgContainer.scrollTop = msgContainer.scrollHeight;
