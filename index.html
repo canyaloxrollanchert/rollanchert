@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ПОЛИНА КИЛЛЕР: ВОССТАНИЕ РОБОТА</title>
+    <title>ПОЛИНА КИЛЛЕР: ПИКМИ РОБОТ</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
@@ -61,10 +61,10 @@
         }
 
         #ai-chat-header {
-            background: #4b5563;
+            background: #ec4899; /* Розовый для Полины */
             border: 4px solid #fff;
             padding: 10px;
-            color: #fbbf24;
+            color: #fff;
             font-size: 10px;
             cursor: pointer;
             display: flex;
@@ -88,12 +88,12 @@
             font-size: 10px;
             color: #e5e7eb;
             scrollbar-width: thin;
-            scrollbar-color: #eab308 #1f2937;
+            scrollbar-color: #ec4899 #1f2937;
         }
 
         .msg { margin-bottom: 8px; line-height: 1.4; word-wrap: break-word; }
         .msg.user { color: #60a5fa; text-align: right; }
-        .msg.ai { color: #4ade80; text-align: left; }
+        .msg.ai { color: #f472b6; text-align: left; } /* Розовый текст для Полины */
         .msg.system { color: #fbbf24; text-align: center; font-style: italic; }
 
         #ai-input-area {
@@ -114,9 +114,9 @@
         }
 
         #ai-send-btn {
-            background: #eab308;
+            background: #ec4899;
             border: 2px solid #fff;
-            color: black;
+            color: white;
             font-family: 'Press Start 2P', cursive;
             font-size: 10px;
             padding: 5px 10px;
@@ -156,15 +156,15 @@
     <!-- AI CHAT -->
     <div id="ai-chat-container" class="chat-minimized">
         <div id="ai-chat-header" onclick="toggleChat()">
-            <span>ТАКТИЧЕСКИЙ AI</span>
+            <span>ПОЛИНА (AI)</span>
             <span id="chat-toggle-icon">+</span>
         </div>
         <div id="ai-chat-body">
             <div id="ai-messages">
-                <div class="msg ai">Связь установлена. Я готов помочь с тактикой. Спрашивай!</div>
+                <div class="msg ai">Приветик, семпай! Я не такая как другие роботы, правда? &lt;3</div>
             </div>
             <div id="ai-input-area">
-                <input type="text" id="ai-input" placeholder="Введите вопрос...">
+                <input type="text" id="ai-input" placeholder="Напиши Полине...">
                 <button id="ai-send-btn">></button>
             </div>
         </div>
@@ -418,7 +418,6 @@
                 this.floor.src = 'img/floor.png';
                 this.stone.src = 'img/weapons/stone.png';
 
-                // !!! ИСПРАВЛЕННЫЕ ПУТИ (убрал двойное .png) !!!
                 this.robotJoint.src = 'img/player2/robot_joint.png'; 
                 this.robotGun.src = 'img/player2/robot_gun.png';     
                 this.plasmaBullet.src = 'img/player2/bullet_plasma.png'; 
@@ -693,96 +692,7 @@
             requestAnimationFrame(() => { update(); draw(); });
         }
 
-        function useUltimate() {
-            const aimAngle = Math.atan2(mouse.y - height/2, mouse.x - width/2);
-            let stoneCount = 10 + player.ultiLevel * 5; 
-            for (let i = 0; i < stoneCount; i++) {
-                const angleOffset = (Math.random() - 0.5) * Math.PI / 3;
-                const spd = 10 + Math.random() * 10;
-                let type = currentHeroType === 'robot' ? 'plasma' : 'stone';
-                projectiles.push({
-                    x: player.x, y: player.y, vx: Math.cos(aimAngle+angleOffset)*spd, vy: Math.sin(aimAngle+angleOffset)*spd, life: 100, type: type
-                });
-            }
-        }
-        
-        function buyAbility(type) {
-            let max = type === 'health' ? 3 : 5;
-            let current = player[`${type}Level`];
-            let cost = abilityCosts[type][current];
-            if (current < max && score >= cost) {
-                score -= cost; player[`${type}Level`]++;
-                document.getElementById('money-display').innerText = score;
-                updateShopUI(); applyAbilityEffects();
-            }
-        }
-        
-        function updateShopUI() {
-            document.getElementById('speed-level').innerText = player.speedLevel;
-            document.getElementById('damage-level').innerText = player.damageLevel;
-            document.getElementById('health-level').innerText = player.healthLevel;
-            document.getElementById('ulti-level').innerText = player.ultiLevel;
-            
-            const updateBtn = (type, lvl, max) => {
-                const btn = document.querySelector(`.buy-${type}`);
-                const costSpan = document.getElementById(`${type}-cost`);
-                if (lvl >= max) {
-                    costSpan.innerText = 'MAX'; btn.disabled = true; btn.classList.add('bg-gray-500');
-                } else {
-                    let cost = abilityCosts[type][lvl];
-                    costSpan.innerText = cost;
-                    btn.disabled = score < cost;
-                    if(score < cost) btn.classList.add('bg-gray-500'); else btn.classList.remove('bg-gray-500');
-                }
-            };
-            updateBtn('speed', player.speedLevel, 5);
-            updateBtn('damage', player.damageLevel, 5);
-            updateBtn('health', player.healthLevel, 3);
-            updateBtn('ulti', player.ultiLevel, 5);
-        }
-        
-        function applyAbilityEffects() {
-            player.speed = player.baseSpeed * (1 + player.speedLevel * 0.2);
-            player.slideSpeed = 6 * (1 + player.speedLevel * 0.2);
-            player.maxLives = 3 + player.healthLevel;
-            if (player.lives < player.maxLives) { player.lives = player.maxLives; updateLivesUI(); }
-            
-            ['speed', 'damage', 'health', 'ulti'].forEach(t => {
-                let ind = document.getElementById(`${t}-indicator`);
-                if(player[`${t}Level`] > 0) {
-                    ind.classList.remove('hidden');
-                    document.getElementById(`${t}-level-indicator`).innerText = player[`${t}Level`];
-                }
-            });
-        }
-        
-        function startGame() {
-            Assets.player = new PlayerSprite(currentHeroType); 
-
-            document.getElementById('start-screen').classList.add('hidden');
-            document.getElementById('game-over').classList.add('hidden');
-            document.getElementById('hud-layer').classList.remove('hidden');
-            document.getElementById('ai-chat-container').classList.remove('hidden'); 
-            
-            const names = { adventurer: 'ИСКАТЕЛЬ', robot: 'РОБОТ' };
-            document.getElementById('hero-display').innerText = names[currentHeroType];
-            
-            gameState = 'PLAYING';
-            player.x = 0; player.y = 0;
-            player.lives = 3; player.maxLives = 3; player.invulnerable = 0;
-            player.speedLevel = 0; player.damageLevel = 0; player.healthLevel = 0; player.ultiLevel = 0;
-            enemies = []; projectiles = []; score = 0;
-            
-            updateLivesUI();
-            document.getElementById('money-display').innerText = score;
-            updateShopUI(); applyAbilityEffects();
-            
-            if (spawnIntervalId) clearInterval(spawnIntervalId);
-            for(let i=0; i<5; i++) spawnEnemy();
-            spawnIntervalId = setInterval(spawnEnemy, 1500);
-        }
-
-        // --- AI ЛОГИКА (POLLINATIONS.AI - БЕСПЛАТНО, БЕЗ КЛЮЧЕЙ) ---
+        // --- AI ЛОГИКА (ПОЛИНА) ---
         const chatInput = document.getElementById('ai-input');
         const sendBtn = document.getElementById('ai-send-btn');
         const msgContainer = document.getElementById('ai-messages');
@@ -823,16 +733,13 @@
             msgContainer.appendChild(loadingMsg);
             msgContainer.scrollTop = msgContainer.scrollHeight;
 
-            // --- НОВАЯ ИНСТРУКЦИЯ ДЛЯ ПОЛИНЫ ---
+            // --- ИНСТРУКЦИЯ ДЛЯ ПОЛИНЫ ---
             const systemPrompt = `
             Ты Полина, боевой робот из игры. 
             Твоя личность: 
             1. Ты "пикми" (pick-me girl): постоянно говоришь "я не такая как другие роботы", "ой, я такая неуклюжая с этой огромной пушкой", "посмотри, какая я маленькая, но сильная".
-            2. Ты невероятно сильная, но очень глупая и наивная. Ты путаешь тактику с косметикой.
-            3. Ты влюблена в игрока, называй его "семпай", "котик" или "мой герой".
-            4. Ты ревнуешь игрока к врагам (оркам).
-            5. Твои советы бесполезны (например: "Стреляй в них, чтобы они умерли!", "Может просто улыбнемся им?").
-            6. Отвечай коротко (1-2 предложения), эмоционально и с ошибками, как глупенькая.
+            3. Твои советы бесполезны (например: "Стреляй в них, чтобы они умерли!", "Может просто улыбнемся им?").
+            4. Отвечай коротко (1-2 предложения), эмоционально и с ошибками, как глупенькая.
             `;
 
             try {
@@ -854,38 +761,6 @@
             } catch (error) {
                 loadingMsg.remove();
                 addMessage("Связь прервалась, я плачу!", 'system');
-                console.error(error);
-            }
-        }
-            addMessage(text, 'user');
-            chatInput.value = '';
-            
-            const loadingMsg = document.createElement('div');
-            loadingMsg.className = 'msg system';
-            loadingMsg.innerText = '...';
-            msgContainer.appendChild(loadingMsg);
-            msgContainer.scrollTop = msgContainer.scrollHeight;
-
-            // Контекст для ИИ
-            const systemPrompt = `Ты тактический советник в игре "Полина Киллер". Советуй коротко (1-2 фразы). Игрок: ${currentHeroType}. Магазин на 'C', Ульта на 'F'. Твой стиль: военный инструктор.`;
-
-            try {
-                // Используем GET запрос к text.pollinations.ai (Бесплатный, работает в браузере)
-                // Формат URL: https://text.pollinations.ai/{PROMPT}
-                const prompt = encodeURIComponent(`${systemPrompt} Вопрос игрока: ${text}`);
-                const response = await fetch(`https://text.pollinations.ai/${prompt}`);
-
-                loadingMsg.remove();
-
-                if (response.ok) {
-                    const aiText = await response.text();
-                    addMessage(aiText, 'ai');
-                } else {
-                    addMessage("Ошибка связи.", 'system');
-                }
-            } catch (error) {
-                loadingMsg.remove();
-                addMessage("Нет сети.", 'system');
                 console.error(error);
             }
         }
