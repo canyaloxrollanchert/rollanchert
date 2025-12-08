@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ПОЛИНА КИЛЛЕР: ПИКМИ РОБОТ (HAND THROW UPDATE)</title>
+    <title>ПОЛИНА КИЛЛЕР: ПИКМИ РОБОТ (RELOAD & ULTI UPDATE)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
@@ -125,6 +125,20 @@
         }
 
         .chat-minimized #ai-chat-body { display: none; }
+        
+        /* ПЕРЕЗАРЯДКА UI */
+        #ammo-container {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            z-index: 10;
+        }
+        .reload-bar {
+            width: 0%;
+            height: 5px;
+            background: #ef4444;
+            transition: width 0.1s linear;
+        }
     </style>
 </head>
 <body>
@@ -133,7 +147,6 @@
     <div id="hud-layer" class="absolute top-0 left-0 w-full h-full pointer-events-none p-5 flex flex-col justify-between hidden z-10">
         <div class="flex justify-between items-start text-white pixel-font text-xs md:text-sm">
             <div>
-                <!-- ВЕРНУЛ ЭТАЖ И КЭШ ПОД НИМ -->
                 <div class="text-yellow-400 mb-2">ЭТАЖ: <span id="floor-display">1</span></div>
                 <div class="text-green-400">КЭШ: $<span id="money-display">0</span></div>
             </div>
@@ -152,6 +165,17 @@
                 <div id="ulti-indicator" class="hidden w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white pixel-font text-xs"><span id="ulti-level-indicator">0</span></div>
             </div>
             <button id="shop-btn" class="btn-retro" style="background-color: #a855f7;">МАГАЗИН (C)</button>
+        </div>
+        
+        <!-- АММО (Для Робота) -->
+        <div id="ammo-container" class="hidden text-white pixel-font text-xs">
+            <div class="mb-1 text-purple-400">ПАТРОНЫ</div>
+            <div class="text-2xl" id="ammo-count">12 / 12</div>
+            <div id="reload-text" class="text-red-500 text-[10px] hidden">ПЕРЕЗАРЯДКА...</div>
+            <div class="w-32 h-2 bg-gray-700 mt-1">
+                <div id="reload-progress" class="h-full bg-yellow-400" style="width: 0%"></div>
+            </div>
+            <div class="text-[8px] text-gray-400 mt-1">ЖМИ [R]</div>
         </div>
     </div>
 
@@ -225,7 +249,7 @@
                         <img src="img/player/character_maleAdventurer_idle.png" class="w-full h-full object-contain pixelated" onerror="this.style.display='none'; this.parentElement.style.backgroundColor='#3b82f6'" alt="Adventurer">
                     </div>
                     <span class="text-blue-400 pixel-font text-xs">ИСКАТЕЛЬ</span>
-                    <div class="text-[8px] text-gray-400 mt-2 text-center">Оружие: Камни<br>HP: 3</div>
+                    <div class="text-[8px] text-gray-400 mt-2 text-center">Оружие: Камни<br>∞ Патронов<br>Ульта: Дождь</div>
                 </div>
                 
                 <div class="hero-card selected p-4 rounded-lg flex flex-col items-center w-40" onclick="selectHero('robot')">
@@ -233,12 +257,12 @@
                         <img src="img/player2/character_robot_idle.png" class="w-full h-full object-contain pixelated" onerror="this.style.display='none'; this.parentElement.style.backgroundColor='#a855f7'" alt="Robot">
                     </div>
                     <span class="text-purple-400 pixel-font text-xs">РОБОТ</span>
-                    <div class="text-[8px] text-gray-400 mt-2 text-center">Оружие: Плазма<br>Скорость: ++</div>
+                    <div class="text-[8px] text-gray-400 mt-2 text-center">Оружие: Плазма<br>Магазин: 12<br>Ульта: Рикошет</div>
                 </div>
             </div>
         </div>
 
-        <p class="text-gray-400 mb-8 pixel-font text-[10px] text-center">WASD - Ходить | ЛКМ - Стрелять | C - Магазин | F - Ульта</p>
+        <p class="text-gray-400 mb-8 pixel-font text-[10px] text-center">WASD - Ходить | ЛКМ - Стрелять | R - Перезарядка | F - Ульта</p>
         <button id="start-btn" class="btn-retro px-8 py-4 text-black font-bold pixel-font text-sm">НАЧАТЬ ЗАЧИСТКУ</button>
     </div>
 
@@ -297,6 +321,17 @@
                     osc.start(now);
                     osc.stop(now + 0.3);
                 }
+                else if (type === 'reload') {
+                    // Звук перезарядки
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(200, now);
+                    osc.frequency.linearRampToValueAtTime(400, now + 0.1);
+                    osc.frequency.linearRampToValueAtTime(600, now + 0.2);
+                    gain.gain.setValueAtTime(0.05, now);
+                    gain.gain.linearRampToValueAtTime(0.0, now + 0.25);
+                    osc.start(now);
+                    osc.stop(now + 0.25);
+                }
                 else if (type === 'buy') {
                     osc.type = 'sine';
                     osc.frequency.setValueAtTime(600, now);
@@ -305,6 +340,16 @@
                     gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
                     osc.start(now);
                     osc.stop(now + 0.2);
+                }
+                else if (type === 'ricochet') {
+                    // Звук рикошета
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(800, now);
+                    osc.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                    osc.start(now);
+                    osc.stop(now + 0.1);
                 }
             }
         };
@@ -490,32 +535,23 @@
                 }
                 ctx.restore();
 
-                // === АНИМАЦИЯ РУКИ (БРОСОК) ===
-                // Мы больше не рисуем gun.png. Мы рисуем процедурную руку.
+                // === АНИМАЦИЯ РУКИ ===
                 ctx.save();
-                ctx.translate(x, y); // Центр игрока
-                
-                // Смещаем руку чуть ниже центра
+                ctx.translate(x, y); 
                 ctx.translate(0, 5);
-                
                 ctx.rotate(angleToPlayer);
 
-                // Если игрок атакует, рука вылетает вперед
-                let handDistance = 20; // Обычное положение
+                let handDistance = 20; 
                 if (player.attacking) {
-                     // Простая анимация "выброса"
                      handDistance = 35;
                 }
 
-                // Рисуем руку (кружочек)
-                ctx.fillStyle = this.heroType === 'robot' ? '#c084fc' : '#fca5a5'; // Фиолетовая или телесная
-                if (this.heroType === 'robot') ctx.fillStyle = '#a855f7';
+                ctx.fillStyle = this.heroType === 'robot' ? '#a855f7' : '#fca5a5'; 
 
                 ctx.beginPath();
                 ctx.arc(handDistance, 0, 7, 0, Math.PI*2); // Рука
                 ctx.fill();
                 
-                // Плечо (линия от тела до руки)
                 ctx.strokeStyle = ctx.fillStyle;
                 ctx.lineWidth = 4;
                 ctx.beginPath();
@@ -561,12 +597,15 @@
             isSliding: false, slideCooldown: 0, slideDuration: 0,
             lives: 3, maxLives: 3, invulnerable: 0,
             moving: false, attacking: false,
-            speedLevel: 0, damageLevel: 0, healthLevel: 0, ultiLevel: 0
+            speedLevel: 0, damageLevel: 0, healthLevel: 0, ultiLevel: 0,
+            // ПЕРЕМЕННЫЕ ДЛЯ ПАТРОНОВ
+            ammo: 12, maxAmmo: 12, isReloading: false, reloadTimer: 0
         };
         
         let enemies = [];
         let projectiles = [];
         let particles = [];
+        let ricochetLines = []; // Визуализация рикошета
         let screenShake = 0;
         const keys = {};
         const mouse = { x: 0, y: 0 };
@@ -601,6 +640,10 @@
                 useUltimate(); 
                 ultCooldown = ultCooldownMax;
             }
+            // ПЕРЕЗАРЯДКА (R)
+            if (e.key.toLowerCase() === 'r' && gameState === 'PLAYING' && currentHeroType === 'robot') {
+                reloadWeapon();
+            }
             if (e.key.toLowerCase() === 'c' && gameState === 'PLAYING') document.getElementById('shop-modal').classList.remove('hidden');
         });
         window.addEventListener('keyup', e => {
@@ -622,8 +665,19 @@
                 
                 if (currentTime - player.lastThrowTime < cooldown) return;
                 
+                // --- ЛОГИКА СТРЕЛЬБЫ ---
+                if (currentHeroType === 'robot') {
+                    if (player.isReloading) return; // Нельзя стрелять во время перезарядки
+                    if (player.ammo <= 0) {
+                        reloadWeapon(); // Авто-перезарядка
+                        return;
+                    }
+                    player.ammo--;
+                    updateAmmoUI();
+                }
+
                 player.attacking = true;
-                setTimeout(() => { player.attacking = false; }, 200); // Быстрая анимация броска
+                setTimeout(() => { player.attacking = false; }, 200);
                 
                 AudioEngine.play('shoot'); 
                 screenShake = 3; 
@@ -671,11 +725,50 @@
             document.getElementById('pause-menu').classList.add('hidden');
             document.getElementById('hud-layer').classList.add('hidden');
             document.getElementById('start-screen').classList.remove('hidden');
-            enemies = []; projectiles = []; particles = [];
+            enemies = []; projectiles = []; particles = []; ricochetLines = [];
         }
 
         function updateLivesUI() {
             document.getElementById('lives-container').innerText = '♥'.repeat(Math.max(0, player.lives));
+        }
+
+        // --- UI ПЕРЕЗАРЯДКИ ---
+        function updateAmmoUI() {
+            const el = document.getElementById('ammo-container');
+            if (currentHeroType === 'robot') {
+                el.classList.remove('hidden');
+                document.getElementById('ammo-count').innerText = `${player.ammo} / ${player.maxAmmo}`;
+                if (player.ammo === 0) document.getElementById('ammo-count').classList.add('text-red-500');
+                else document.getElementById('ammo-count').classList.remove('text-red-500');
+            } else {
+                el.classList.add('hidden');
+            }
+        }
+
+        function reloadWeapon() {
+            if (player.isReloading || player.ammo === player.maxAmmo) return;
+            player.isReloading = true;
+            AudioEngine.play('reload');
+            
+            document.getElementById('reload-text').classList.remove('hidden');
+            const progress = document.getElementById('reload-progress');
+            progress.style.width = '0%';
+            
+            // Анимация прогресс бара
+            let p = 0;
+            const interval = setInterval(() => {
+                p += 5;
+                progress.style.width = p + '%';
+                if (p >= 100) clearInterval(interval);
+            }, 50); // 1000ms total
+
+            setTimeout(() => {
+                player.ammo = player.maxAmmo;
+                player.isReloading = false;
+                document.getElementById('reload-text').classList.add('hidden');
+                progress.style.width = '0%';
+                updateAmmoUI();
+            }, 1000);
         }
 
         function spawnEnemy() {
@@ -727,6 +820,12 @@
 
             if (player.invulnerable > 0) player.invulnerable--;
             if (ultCooldown > 0) ultCooldown -= 1000 / 60;
+            
+            // Удаляем линии рикошета со временем
+            for (let i = ricochetLines.length - 1; i >= 0; i--) {
+                ricochetLines[i].life -= 0.05;
+                if(ricochetLines[i].life <= 0) ricochetLines.splice(i, 1);
+            }
 
             camera.x = player.x - width/2;
             camera.y = player.y - height/2;
@@ -765,15 +864,7 @@
 
                         projectiles.splice(j, 1);
                         if (e.hp <= 0) { 
-                            AudioEngine.play('explosion');
-                            screenShake = 10;
-                            for(let k=0; k<15; k++) particles.push(new Particle(e.x, e.y, e.type === 'imp' ? '#991b1b' : '#064e3b'));
-                            
-                            enemies.splice(i, 1); 
-                            score += e.type === 'imp' ? 200 : 100; 
-                            document.getElementById('money-display').innerText = score; 
-
-                            if (score % 1000 === 0) triggerAiReaction("Игрок набрал кучу очков и убивает всех подряд.");
+                            killEnemy(e, i);
                         }
                         break;
                     }
@@ -797,6 +888,25 @@
                     }
                 }
             }
+        }
+        
+        function killEnemy(e, index) {
+            AudioEngine.play('explosion');
+            screenShake = 10;
+            for(let k=0; k<15; k++) particles.push(new Particle(e.x, e.y, e.type === 'imp' ? '#991b1b' : '#064e3b'));
+            
+            // Если передан индекс, удаляем из массива (проверка нужна для ульты)
+            if (index !== undefined && index !== -1) enemies.splice(index, 1);
+            else {
+                // Если вызываем из ульты, врага может уже не быть по индексу, ищем
+                const idx = enemies.indexOf(e);
+                if (idx > -1) enemies.splice(idx, 1);
+            }
+
+            score += e.type === 'imp' ? 200 : 100; 
+            document.getElementById('money-display').innerText = score; 
+
+            if (score % 1000 === 0) triggerAiReaction("Игрок набрал кучу очков и убивает всех подряд.");
         }
 
         function draw() {
@@ -826,13 +936,29 @@
 
             // Частицы
             particles.forEach(p => p.draw(ctx));
+            
+            // Линии рикошета (УЛЬТА)
+            ricochetLines.forEach(l => {
+                ctx.globalAlpha = Math.max(0, l.life);
+                ctx.strokeStyle = '#a855f7'; // Фиолетовый луч
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(l.x1, l.y1);
+                ctx.lineTo(l.x2, l.y2);
+                ctx.stroke();
+                
+                // Вспышки
+                ctx.fillStyle = 'white';
+                ctx.beginPath(); ctx.arc(l.x2, l.y2, 10 * l.life, 0, Math.PI*2); ctx.fill();
+                ctx.globalAlpha = 1;
+            });
 
             // Враги
             enemies.forEach(e => {
                 ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(e.x, e.y+15, 15, 8, 0, 0, Math.PI*2); ctx.fill();
                 
                 if (e.type === 'imp') {
-                    ctx.fillStyle = '#ef4444'; // Красный
+                    ctx.fillStyle = '#ef4444'; 
                     ctx.beginPath(); ctx.arc(e.x, e.y, 15, 0, Math.PI*2); ctx.fill();
                     ctx.fillStyle = 'yellow'; ctx.fillRect(e.x-5, e.y-5, 4, 4); ctx.fillRect(e.x+2, e.y-5, 4, 4);
                 } else {
@@ -850,7 +976,13 @@
                     ctx.drawImage(Assets.stone, p.x - 10, p.y - 10, 20, 20);
                 } 
                 else if (p.type === 'plasma' && Assets.plasmaBullet.complete && Assets.plasmaBullet.naturalWidth !== 0) {
-                    ctx.drawImage(Assets.plasmaBullet, p.x - 12, p.y - 12, 24, 24);
+                    // --- ВРАЩЕНИЕ ПУЛИ ---
+                    ctx.save();
+                    ctx.translate(p.x, p.y);
+                    // Поворачиваем на угол полета (atan2 vx, vy)
+                    ctx.rotate(Math.atan2(p.vy, p.vx)); 
+                    ctx.drawImage(Assets.plasmaBullet, -12, -12, 24, 24);
+                    ctx.restore();
                 }
                 else { 
                     ctx.fillStyle = p.type === 'plasma' ? '#3b82f6' : '#fbbf24'; 
@@ -867,7 +999,6 @@
                 ctx.fillStyle = '#eab308'; ctx.fillRect(x, y, 100 * (ultCooldown/ultCooldownMax), 10);
                 ctx.fillStyle = '#fff'; ctx.font = '10px "Press Start 2P"'; ctx.fillText('УЛЬТА', x+25, y-5);
             } else {
-                // Если ульта готова - мигает надпись
                 const x = width - 120, y = 60;
                 if (Math.floor(Date.now() / 500) % 2 === 0) {
                     ctx.fillStyle = '#4ade80'; 
@@ -888,19 +1019,83 @@
 
         // --- ФУНКЦИЯ УЛЬТЫ ---
         function useUltimate() {
-            const aimAngle = Math.atan2(mouse.y - height/2, mouse.x - width/2);
-            let stoneCount = 10 + player.ultiLevel * 5; 
-            screenShake = 20;
-            AudioEngine.play('explosion');
-            triggerAiReaction("Игрок использовал Ульту и чувствует себя крутым.");
-            
-            for (let i = 0; i < stoneCount; i++) {
-                const angleOffset = (Math.random() - 0.5) * Math.PI / 3;
-                const spd = 10 + Math.random() * 10;
-                let type = currentHeroType === 'robot' ? 'plasma' : 'stone';
-                projectiles.push({
-                    x: player.x, y: player.y, vx: Math.cos(aimAngle+angleOffset)*spd, vy: Math.sin(aimAngle+angleOffset)*spd, life: 100, type: type
-                });
+            if (currentHeroType === 'robot') {
+                // --- НОВАЯ УЛЬТА РОБОТА: РИКОШЕТ ---
+                performRicochetUlt();
+            } else {
+                // --- УЛЬТА ИСКАТЕЛЯ: КАМНЕПАД ---
+                const aimAngle = Math.atan2(mouse.y - height/2, mouse.x - width/2);
+                let stoneCount = 10 + player.ultiLevel * 5; 
+                screenShake = 20;
+                AudioEngine.play('explosion');
+                triggerAiReaction("Искатель устроил камнепад.");
+                
+                for (let i = 0; i < stoneCount; i++) {
+                    const angleOffset = (Math.random() - 0.5) * Math.PI / 3;
+                    const spd = 10 + Math.random() * 10;
+                    projectiles.push({
+                        x: player.x, y: player.y, vx: Math.cos(aimAngle+angleOffset)*spd, vy: Math.sin(aimAngle+angleOffset)*spd, life: 100, type: 'stone'
+                    });
+                }
+            }
+        }
+
+        // --- ЛОГИКА РИКОШЕТА ---
+        function performRicochetUlt() {
+            const targets = [...enemies];
+            if (targets.length === 0) return;
+
+            let currentSource = { x: player.x, y: player.y };
+            let hits = 0;
+            const maxHits = 4;
+            const damage = (10 * (1 + player.damageLevel * 0.25)) * 0.7; // 70% от обычного урона
+
+            AudioEngine.play('ricochet');
+            triggerAiReaction("Робот запускает цепную реакцию!");
+            screenShake = 10;
+
+            // Алгоритм поиска ближайших соседей
+            while (hits < maxHits && targets.length > 0) {
+                let nearest = null;
+                let minDst = Infinity;
+                let nearestIdx = -1;
+
+                // Найти ближайшего к текущей точке
+                for (let i = 0; i < targets.length; i++) {
+                    const t = targets[i];
+                    const dst = Math.hypot(t.x - currentSource.x, t.y - currentSource.y);
+                    if (dst < 600 && dst < minDst) { // Макс дистанция прыжка 600
+                        minDst = dst;
+                        nearest = t;
+                        nearestIdx = i;
+                    }
+                }
+
+                if (nearest) {
+                    // Рисуем линию
+                    ricochetLines.push({
+                        x1: currentSource.x, y1: currentSource.y,
+                        x2: nearest.x, y2: nearest.y,
+                        life: 1.0
+                    });
+
+                    // Наносим урон
+                    nearest.hp -= damage;
+                    for(let k=0; k<5; k++) particles.push(new Particle(nearest.x, nearest.y, '#a855f7'));
+
+                    if (nearest.hp <= 0) {
+                        killEnemy(nearest);
+                        // Если убили, удаляем его из списка potential targets для следующего шага
+                        // (он уже удален из enemies внутри killEnemy, но targets это копия ссылок)
+                    }
+
+                    // Убираем из списка доступных, чтобы не бить одного и того же дважды подряд
+                    targets.splice(nearestIdx, 1);
+                    currentSource = nearest;
+                    hits++;
+                } else {
+                    break; // Никого рядом нет
+                }
             }
         }
         
@@ -971,9 +1166,15 @@
             player.x = 0; player.y = 0;
             player.lives = 3; player.maxLives = 3; player.invulnerable = 0;
             player.speedLevel = 0; player.damageLevel = 0; player.healthLevel = 0; player.ultiLevel = 0;
-            enemies = []; projectiles = []; score = 0; particles = [];
+            
+            // Сброс патронов
+            player.ammo = player.maxAmmo;
+            player.isReloading = false;
+
+            enemies = []; projectiles = []; score = 0; particles = []; ricochetLines = [];
             
             updateLivesUI();
+            updateAmmoUI();
             document.getElementById('money-display').innerText = score;
             updateShopUI(); applyAbilityEffects();
             
