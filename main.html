@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ПОЛИНА КИЛЛЕР: ВОССТАНИЕ РОБОТА</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        
+        /* --- БАЗОВЫЕ СТИЛИ --- */
+        body { margin: 0; overflow: hidden; background-color: #1a1a1a; user-select: none; font-family: 'Press Start 2P', monospace; image-rendering: pixelated; color: white; }
+        canvas { display: block; }
+        
+        .hidden { display: none !important; }
+        .pixel-font { font-family: 'Press Start 2P', cursive; text-shadow: 2px 2px 0 #000; }
+        
+        /* КНОПКИ */
+        .btn-retro { 
+            background: #eab308; 
+            border: 4px solid #fff; 
+            box-shadow: 4px 4px 0px #000; 
+            transition: transform 0.1s; 
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            font-family: 'Press Start 2P', cursive;
+        }
+        .btn-retro:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0px #000; }
+        .btn-retro:disabled { background: #6b7280; cursor: not-allowed; box-shadow: none; transform: none; }
+        
+        .modal-overlay { background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(5px); }
+        
+        /* СТИЛИ КАРТОЧЕК ГЕРОЕВ */
+        .hero-card {
+            border: 4px solid #4b5563;
+            background: #1f2937;
+            cursor: pointer;
+            transition: all 0.2s;
+            opacity: 0.6;
+            position: relative;
+        }
+        .hero-card:hover { transform: translateY(-5px); opacity: 1; }
+        .hero-card.selected {
+            border-color: #4ade80;
+            background: #374151;
+            opacity: 1;
+            box-shadow: 0 0 15px rgba(74, 222, 128, 0.5);
+        }
+        
+        @keyframes damage-blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div id="hud-layer" class="absolute top-0 left-0 w-full h-full pointer-events-none p-5 flex flex-col justify-between hidden z-10">
+        <div class="flex justify-between items-start text-white pixel-font text-xs md:text-sm">
+            <div>
+                <div class="text-yellow-400 mb-2">ЭТАЖ: <span id="floor-display">1</span></div>
+                <div class="text-green-400">КЭШ: $<span id="money-display">0</span></div>
+            </div>
+            <div class="text-right">
+                <div id="lives-container" class="mb-2 text-red-500 text-xl tracking-widest">♥♥♥</div>
+                <div class="text-blue-400 text-xs">ГЕРОЙ: <span id="hero-display">...</span></div>
+            </div>
+        </div>
+        
+        <div class="flex flex-col items-center pointer-events-auto" style="margin-bottom: 20px;">
+            <div id="abilities-indicator" class="flex justify-center space-x-2 mb-4 gap-2">
+                <div id="speed-indicator" class="hidden w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white pixel-font text-xs"><span id="speed-level-indicator">0</span></div>
+                <div id="damage-indicator" class="hidden w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white pixel-font text-xs"><span id="damage-level-indicator">0</span></div>
+                <div id="health-indicator" class="hidden w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white pixel-font text-xs"><span id="health-level-indicator">0</span></div>
+                <div id="ulti-indicator" class="hidden w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white pixel-font text-xs"><span id="ulti-level-indicator">0</span></div>
+            </div>
+            <button id="shop-btn" class="btn-retro" style="background-color: #a855f7;">МАГАЗИН (C)</button>
+        </div>
+    </div>
+
+    <div id="shop-modal" class="hidden absolute inset-0 z-50 modal-overlay flex flex-col items-center justify-center pointer-events-auto">
+        <div class="bg-gray-800 p-6 rounded-lg border-4 border-white max-w-2xl w-full mx-4" style="max-height: 90vh; overflow-y: auto;">
+            <h2 class="text-3xl text-yellow-400 pixel-font mb-6 text-center">МАГАЗИН</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div class="bg-gray-700 p-4 rounded border-2 border-gray-600">
+                    <h3 class="text-lg text-blue-400 pixel-font mb-2">СКОРОСТЬ</h3>
+                    <p class="text-green-400 pixel-font text-xs">ЦЕНА: $<span id="speed-cost">500</span></p>
+                    <button class="buy-speed btn-retro w-full mt-2">КУПИТЬ</button>
+                    <div class="mt-2 text-center text-xs text-yellow-300">УР: <span id="speed-level">0</span>/5</div>
+                </div>
+                <div class="bg-gray-700 p-4 rounded border-2 border-gray-600">
+                    <h3 class="text-lg text-red-400 pixel-font mb-2">УРОН</h3>
+                    <p class="text-green-400 pixel-font text-xs">ЦЕНА: $<span id="damage-cost">750</span></p>
+                    <button class="buy-damage btn-retro w-full mt-2">КУПИТЬ</button>
+                    <div class="mt-2 text-center text-xs text-yellow-300">УР: <span id="damage-level">0</span>/5</div>
+                </div>
+                <div class="bg-gray-700 p-4 rounded border-2 border-gray-600">
+                    <h3 class="text-lg text-green-400 pixel-font mb-2">ЖИЗНЬ (+1)</h3>
+                    <p class="text-green-400 pixel-font text-xs">ЦЕНА: $<span id="health-cost">1000</span></p>
+                    <button class="buy-health btn-retro w-full mt-2">КУПИТЬ</button>
+                    <div class="mt-2 text-center text-xs text-yellow-300">УР: <span id="health-level">0</span>/3</div>
+                </div>
+                <div class="bg-gray-700 p-4 rounded border-2 border-gray-600">
+                    <h3 class="text-lg text-purple-400 pixel-font mb-2">УЛЬТА (+5)</h3>
+                    <p class="text-green-400 pixel-font text-xs">ЦЕНА: $<span id="ulti-cost">1500</span></p>
+                    <button class="buy-ulti btn-retro w-full mt-2">КУПИТЬ</button>
+                    <div class="mt-2 text-center text-xs text-yellow-300">УР: <span id="ulti-level">0</span>/5</div>
+                </div>
+            </div>
+            <div class="flex justify-center"><button id="close-shop-btn" class="btn-retro bg-gray-500">ЗАКРЫТЬ</button></div>
+        </div>
+    </div>
+
+    <div id="pause-menu" class="hidden absolute inset-0 z-50 modal-overlay flex flex-col items-center justify-center pointer-events-auto">
+        <h2 class="text-4xl text-yellow-400 pixel-font mb-8">ПАУЗА</h2>
+        <button id="resume-btn" class="btn-retro mb-4 w-48 text-black">ПРОДОЛЖИТЬ</button>
+        <button id="menu-btn" class="btn-retro w-48 bg-gray-500 text-black">В ГЛАВНОЕ МЕНЮ</button>
+    </div>
+
+    <div id="start-screen" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 z-50">
+        <h1 class="text-4xl md:text-6xl text-green-500 pixel-font mb-4 text-center">ПОЛИНА <br><span class="text-red-600">КИЛЛЕР</span></h1>
+        
+        <div class="mb-8 w-full max-w-2xl px-4">
+            <h3 class="text-white pixel-font text-center mb-4 text-sm">ВЫБЕРИ БОЙЦА:</h3>
+            <div class="flex justify-center gap-6">
+                <div class="hero-card p-4 rounded-lg flex flex-col items-center w-40" onclick="selectHero('adventurer')">
+                    <div class="w-16 h-16 mb-2 bg-gray-800 rounded flex items-center justify-center overflow-hidden">
+                        <img src="img/player/character_maleAdventurer_idle.png" class="w-full h-full object-contain pixelated" alt="Adventurer">
+                    </div>
+                    <span class="text-blue-400 pixel-font text-xs">ИСКАТЕЛЬ</span>
+                    <div class="text-[8px] text-gray-400 mt-2 text-center">Оружие: Камни<br>HP: 3</div>
+                </div>
+                
+                <div class="hero-card selected p-4 rounded-lg flex flex-col items-center w-40" onclick="selectHero('robot')">
+                    <div class="w-16 h-16 mb-2 bg-gray-800 rounded flex items-center justify-center overflow-hidden">
+                        <img src="img/player2/character_robot_idle.png" class="w-full h-full object-contain pixelated" alt="Robot">
+                    </div>
+                    <span class="text-purple-400 pixel-font text-xs">РОБОТ</span>
+                    <div class="text-[8px] text-gray-400 mt-2 text-center">Оружие: Плазма<br>Скорость: ++</div>
+                </div>
+            </div>
+        </div>
+
+        <p class="text-gray-400 mb-8 pixel-font text-[10px] text-center">WASD - Ходить | ЛКМ - Стрелять | C - Магазин | F - Ульта</p>
+        <button id="start-btn" class="btn-retro px-8 py-4 text-black font-bold pixel-font text-sm">НАЧАТЬ ЗАЧИСТКУ</button>
+    </div>
+
+    <div id="game-over" class="hidden absolute inset-0 z-50 bg-black flex flex-col items-center justify-center pointer-events-auto">
+        <h2 class="text-5xl text-red-600 pixel-font mb-4">ПОТРАЧЕНО</h2>
+        <p class="text-white pixel-font text-xs mb-8">СЧЕТ: <span id="final-score">0</span></p>
+        <button id="restart-btn" class="btn-retro px-6 py-3 text-black font-bold pixel-font text-xs">РЕСТАРТ</button>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        // !!! СТАВИМ РОБОТА ПО УМОЛЧАНИЮ !!!
+        let currentHeroType = 'robot'; 
+
+        window.selectHero = function(type) {
+            currentHeroType = type;
+            const cards = document.querySelectorAll('.hero-card');
+            cards.forEach(c => c.classList.remove('selected'));
+            if(type === 'adventurer') cards[0].classList.add('selected');
+            if(type === 'robot') cards[1].classList.add('selected');
+        }
+
+        // --- ДВИЖОК СПРАЙТОВ ---
+        class SpriteLayer {
+            constructor(src, cols, rows) {
+                this.image = new Image();
+                this.image.src = src;
+                this.cols = cols; this.rows = rows; this.loaded = false;
+                this.image.onload = () => { this.loaded = true; };
+            }
+        }
+
+        class CompositeSprite {
+            constructor(layers, speed) {
+                this.layers = layers; this.speed = speed; this.currentFrame = 0; this.timer = 0;
+            }
+            update() {
+                this.timer++;
+                const base = this.layers[1] || this.layers[0];
+                if (base && base.loaded && this.timer % this.speed === 0) {
+                    this.currentFrame = (this.currentFrame + 1) % base.cols;
+                }
+            }
+            draw(ctx, x, y, size, angleToPlayer) {
+                let row = 1; 
+                let deg = angleToPlayer * 180 / Math.PI;
+                if (deg >= -45 && deg < 45) row = 3; else if (deg >= 45 && deg < 135) row = 1; else if (deg >= -135 && deg < -45) row = 0; else row = 2;
+
+                this.layers.forEach(layer => {
+                    if (!layer.loaded || layer.image.width === 0) return;
+                    const frameW = layer.image.width / layer.cols;
+                    const frameH = layer.image.height / layer.rows;
+                    ctx.drawImage(layer.image, this.currentFrame * frameW, row * frameH, frameW, frameH, x - size / 2, y - size / 2, size, size);
+                });
+            }
+        }
+        
+        // --- КЛАСС ИГРОКА ---
+        class PlayerSprite {
+            constructor(heroType) {
+                this.animations = {};
+                this.currentAnimation = 'idle';
+                this.frameIndex = 0;
+                this.timer = 0;
+                this.animationSpeed = 8;
+                this.heroType = heroType;
+                this.loadAnimations(heroType);
+            }
+            
+            loadAnimations(type) {
+                const configs = {
+                    adventurer: { path: 'img/player/', prefix: 'character_maleAdventurer_' },
+                    robot: { path: 'img/player2/', prefix: 'character_robot_' }
+                };
+                const cfg = configs[type];
+                
+                this.animations = {
+                    idle: [`${cfg.path}${cfg.prefix}idle.png`],
+                    slide: [`${cfg.path}${cfg.prefix}slide.png`],
+                    hurt: [`${cfg.path}${cfg.prefix}hurt.png`],
+                    walk: Array.from({length: 8}, (_, i) => `${cfg.path}${cfg.prefix}walk${i}.png`),
+                    run: Array.from({length: 3}, (_, i) => `${cfg.path}${cfg.prefix}run${i}.png`),
+                    attack: Array.from({length: 3}, (_, i) => `${cfg.path}${cfg.prefix}attack${i}.png`)
+                };
+                
+                for (let animName in this.animations) {
+                    this.animations[animName] = this.animations[animName].map(src => {
+                        const img = new Image(); img.src = src; img.loaded = false;
+                        img.onload = () => { img.loaded = true; }; return img;
+                    });
+                }
+            }
+            
+            setAnimation(name) {
+                if (!this.animations[name]) return;
+                if (this.currentAnimation !== name) {
+                    this.currentAnimation = name;
+                    this.frameIndex = 0;
+                    this.timer = 0;
+                }
+            }
+            
+            update(moving, attacking, speed, isSliding) {
+                if (attacking) { this.setAnimation('attack'); this.animationSpeed = 5; }
+                else if (isSliding) { this.setAnimation('slide'); this.animationSpeed = 8; }
+                else if (moving) {
+                    if (speed > 3) { this.setAnimation('run'); this.animationSpeed = 6; }
+                    else { this.setAnimation('walk'); this.animationSpeed = 8; }
+                } else { this.setAnimation('idle'); this.animationSpeed = 15; }
+                
+                this.timer++;
+                const currentFrames = this.animations[this.currentAnimation];
+                if (currentFrames && currentFrames.length > 0 && this.timer % this.animationSpeed === 0) {
+                    this.frameIndex = (this.frameIndex + 1) % currentFrames.length;
+                }
+            }
+            
+            draw(ctx, x, y, size, angleToPlayer) {
+                const currentAnim = this.animations[this.currentAnimation];
+                if (!currentAnim || currentAnim.length === 0) return;
+                const frame = currentAnim[this.frameIndex % currentAnim.length];
+                
+                // ЗАЩИТА ОТ ОШИБОК: Если кадр не загрузился, не рисуем его и выходим
+                if (!frame || !frame.loaded || frame.naturalWidth === 0) return;
+                
+                let deg = angleToPlayer * 180 / Math.PI;
+                let isLeft = Math.abs(deg) > 90;
+                
+                // 1. Рисуем тело
+                ctx.save();
+                ctx.translate(x, y);
+                if (isLeft) ctx.scale(-1, 1);
+                ctx.drawImage(frame, -size/2, -size/2 - 10, size, size); 
+                ctx.restore();
+
+                // 2. Рисуем РУКУ И ОРУЖИЕ (ТОЛЬКО ДЛЯ РОБОТА)
+                if (this.heroType === 'robot') {
+                    // Проверка загрузки
+                    const gunReady = Assets.robotGun.complete && Assets.robotGun.naturalWidth !== 0;
+                    const jointReady = Assets.robotJoint.complete && Assets.robotJoint.naturalWidth !== 0;
+
+                    ctx.save();
+                    ctx.translate(x, y - 12); 
+                    ctx.rotate(angleToPlayer);
+                    if (isLeft) ctx.scale(1, -1);
+
+                    // Если картинки есть - рисуем их
+                    if (jointReady && gunReady) {
+                        ctx.drawImage(Assets.robotJoint, -6, -6, 12, 12); // Сустав чуть поменьше
+                        ctx.drawImage(Assets.robotGun, 10, -10, 40, 20);
+                    } else {
+                        // АВАРИЙНЫЙ РЕЖИМ: Если картинки не найдены, рисуем КРАСНУЮ ПАЛКУ
+                        ctx.fillStyle = 'red';
+                        ctx.fillRect(0, -5, 40, 10);
+                    }
+                    
+                    ctx.restore();
+                }
+            }
+        }
+
+        // --- АССЕТЫ ---
+        const Assets = {
+            orc: null,
+            player: null,
+            floor: new Image(),
+            stone: new Image(),
+            
+            // Новые ассеты робота
+            robotJoint: new Image(),
+            robotGun: new Image(),
+            plasmaBullet: new Image(),
+            
+            init: function() {
+                const COLS = 6; const ROWS = 4;
+                this.orc = new CompositeSprite([
+                    new SpriteLayer('img/enemy/orc1_walk_shadow.png', COLS, ROWS),
+                    new SpriteLayer('img/enemy/orc1_walk_body.png', COLS, ROWS),
+                    new SpriteLayer('img/enemy/orc1_walk_head.png', COLS, ROWS)
+                ], 8);
+                
+                this.floor.src = 'img/floor.png';
+                this.stone.src = 'img/weapons/stone.png';
+
+                // --- ФИКС ИМЕН ФАЙЛОВ ДЛЯ РОБОТА (ТАК У ТЕБЯ В ПАПКЕ) ---
+                // Твои файлы называются с двойным .png.png - Windows шутит!
+                
+                this.robotJoint.src = 'img/player2/robot_joint.png.png'; 
+                this.robotGun.src = 'img/player2/robot_gun.png.png';     
+                this.plasmaBullet.src = 'img/player2/bullet_plasma.png.png'; 
+            }
+        };
+        Assets.init();
+
+        // --- ИГРА ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+        let gameState = 'MENU';
+        
+        const player = {
+            x: 0, y: 0,
+            speed: 3, baseSpeed: 3, slideSpeed: 6,
+            isSliding: false, slideCooldown: 0, slideDuration: 0,
+            lives: 3, maxLives: 3, invulnerable: 0,
+            moving: false, attacking: false,
+            speedLevel: 0, damageLevel: 0, healthLevel: 0, ultiLevel: 0
+        };
+        
+        let enemies = [];
+        let projectiles = [];
+        const keys = {};
+        const mouse = { x: 0, y: 0 };
+        const camera = { x: 0, y: 0 };
+        let score = 0;
+        let spawnIntervalId;
+        let ultCooldown = 0;
+        const ultCooldownMax = 5000;
+        
+        const abilityCosts = {
+            speed: [500, 750, 1000, 1500, 2000],
+            damage: [750, 1000, 1500, 2000, 3000],
+            health: [1000, 2000, 3000],
+            ulti: [1500, 2000, 3000, 4000, 5000]
+        };
+
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // Управление
+        window.addEventListener('keydown', e => {
+            keys[e.key.toLowerCase()] = true;
+            if (e.key === 'Escape') togglePause();
+            if (e.key.toLowerCase() === 'f' && gameState === 'PLAYING' && ultCooldown <= 0) {
+                useUltimate(); ultCooldown = ultCooldownMax;
+            }
+            if (e.key.toLowerCase() === 'c' && gameState === 'PLAYING') document.getElementById('shop-modal').classList.remove('hidden');
+        });
+        window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+        window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+        
+        // СТРЕЛЬБА
+        window.addEventListener('mousedown', () => {
+            if (gameState === 'PLAYING') {
+                if (player.lastThrowTime === undefined) player.lastThrowTime = 0;
+                const currentTime = Date.now();
+                
+                // Робот стреляет быстрее
+                const cooldown = currentHeroType === 'robot' ? 300 : 800;
+                
+                if (currentTime - player.lastThrowTime < cooldown) return;
+                
+                player.attacking = true;
+                setTimeout(() => { player.attacking = false; }, 300);
+                
+                const angle = Math.atan2(mouse.y - height/2, mouse.x - width/2);
+                
+                // Настройки снаряда в зависимости от героя
+                let projType = currentHeroType === 'robot' ? 'plasma' : 'stone';
+                let projSpeed = currentHeroType === 'robot' ? 20 : 15;
+                
+                projectiles.push({ 
+                    x: player.x, 
+                    y: player.y - 15, // Пуля летит примерно от плеча
+                    vx: Math.cos(angle) * projSpeed, 
+                    vy: Math.sin(angle) * projSpeed, 
+                    life: 100, 
+                    type: projType 
+                });
+                player.lastThrowTime = currentTime;
+            }
+        });
+
+        document.getElementById('start-btn').onclick = startGame;
+        document.getElementById('restart-btn').onclick = startGame;
+        document.getElementById('resume-btn').onclick = togglePause;
+        document.getElementById('menu-btn').onclick = goToMenu;
+        document.getElementById('shop-btn').onclick = () => document.getElementById('shop-modal').classList.remove('hidden');
+        document.getElementById('close-shop-btn').onclick = () => document.getElementById('shop-modal').classList.add('hidden');
+        
+        document.querySelector('.buy-speed').onclick = () => buyAbility('speed');
+        document.querySelector('.buy-damage').onclick = () => buyAbility('damage');
+        document.querySelector('.buy-health').onclick = () => buyAbility('health');
+        document.querySelector('.buy-ulti').onclick = () => buyAbility('ulti');
+
+        function togglePause() {
+            if (gameState === 'PLAYING') {
+                gameState = 'PAUSED';
+                document.getElementById('pause-menu').classList.remove('hidden');
+            } else if (gameState === 'PAUSED') {
+                gameState = 'PLAYING';
+                document.getElementById('pause-menu').classList.add('hidden');
+            }
+        }
+
+        function goToMenu() {
+            gameState = 'MENU';
+            document.getElementById('pause-menu').classList.add('hidden');
+            document.getElementById('hud-layer').classList.add('hidden');
+            document.getElementById('start-screen').classList.remove('hidden');
+            enemies = []; projectiles = [];
+        }
+
+        function updateLivesUI() {
+            document.getElementById('lives-container').innerText = '♥'.repeat(Math.max(0, player.lives));
+        }
+
+        function spawnEnemy() {
+            if(gameState !== 'PLAYING') return;
+            const angle = Math.random() * Math.PI * 2;
+            const dist = 900;
+            enemies.push({
+                x: player.x + Math.cos(angle) * dist,
+                y: player.y + Math.sin(angle) * dist,
+                speed: 1.5 + Math.random(),
+                hp: 30, maxHp: 30
+            });
+        }
+
+        function update() {
+            if (gameState !== 'PLAYING') return;
+
+            let dx = 0, dy = 0;
+            if (keys['w'] || keys['ц']) dy = -1;
+            if (keys['s'] || keys['ы']) dy = 1;
+            if (keys['a'] || keys['ф']) dx = -1;
+            if (keys['d'] || keys['в']) dx = 1;
+            
+            const isMoving = (dx !== 0 || dy !== 0);
+            player.moving = isMoving;
+            
+            if (keys['shift'] && !player.isSliding && player.slideCooldown <= 0 && isMoving) {
+                player.isSliding = true; player.slideDuration = 30; player.slideCooldown = 180;
+            }
+            if (player.isSliding) {
+                player.slideDuration--; if (player.slideDuration <= 0) player.isSliding = false;
+            }
+            if (player.slideCooldown > 0) player.slideCooldown--;
+            
+            if (isMoving) {
+                const len = Math.hypot(dx, dy);
+                const currentSpeed = player.isSliding ? player.slideSpeed : player.speed;
+                player.x += (dx/len) * currentSpeed;
+                player.y += (dy/len) * currentSpeed;
+            }
+
+            if (player.invulnerable > 0) player.invulnerable--;
+            if (ultCooldown > 0) ultCooldown -= 1000 / 60;
+
+            camera.x = player.x - width/2;
+            camera.y = player.y - height/2;
+
+            if (Assets.player) Assets.player.update(player.moving, player.attacking, player.speed, player.isSliding);
+
+            // Пули
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                let p = projectiles[i]; p.x += p.vx; p.y += p.vy; p.life--;
+                if (p.life <= 0) projectiles.splice(i, 1);
+            }
+
+            // Враги
+            Assets.orc.update();
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                let e = enemies[i];
+                const angle = Math.atan2(player.y - e.y, player.x - e.x);
+                e.x += Math.cos(angle) * e.speed;
+                e.y += Math.sin(angle) * e.speed;
+                e.angle = angle;
+
+                // Попадание по врагу
+                for (let j = projectiles.length - 1; j >= 0; j--) {
+                    let p = projectiles[j];
+                    if (Math.hypot(p.x - e.x, p.y - e.y) < 30) {
+                        e.hp -= 10 * (1 + player.damageLevel * 0.25);
+                        projectiles.splice(j, 1);
+                        if (e.hp <= 0) { enemies.splice(i, 1); score += 100; document.getElementById('money-display').innerText = score; }
+                        break;
+                    }
+                }
+                
+                // Урон по игроку
+                if (Math.hypot(player.x - e.x, player.y - e.y) < 35 && player.invulnerable <= 0) {
+                    player.lives--;
+                    player.invulnerable = 60;
+                    if (Assets.player) Assets.player.setAnimation('hurt');
+                    updateLivesUI();
+                    if (player.lives <= 0) {
+                        gameState = 'GAMEOVER';
+                        document.getElementById('final-score').innerText = score;
+                        document.getElementById('game-over').classList.remove('hidden');
+                    }
+                }
+            }
+        }
+
+        function draw() {
+            ctx.fillStyle = '#222'; ctx.fillRect(0, 0, width, height);
+            
+            // Фон
+            ctx.save();
+            ctx.translate(-camera.x % 128, -camera.y % 128);
+            if (Assets.floor.complete && Assets.floor.naturalWidth !== 0) {
+                const pat = ctx.createPattern(Assets.floor, 'repeat');
+                ctx.fillStyle = pat; ctx.fillRect(-128, -128, width + 256, height + 256);
+            }
+            ctx.restore();
+
+            ctx.save();
+            ctx.translate(-camera.x, -camera.y);
+
+            // Игрок
+            ctx.globalAlpha = (player.invulnerable > 0 && player.invulnerable % 10 < 5) ? 0.5 : 1;
+            const aimAngle = Math.atan2(mouse.y - height/2, mouse.x - width/2);
+            if (Assets.player) Assets.player.draw(ctx, player.x, player.y, 64, aimAngle);
+            ctx.globalAlpha = 1;
+
+            // Враги
+            enemies.forEach(e => {
+                ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(e.x, e.y+15, 15, 8, 0, 0, Math.PI*2); ctx.fill();
+                Assets.orc.draw(ctx, e.x, e.y, 96, e.angle);
+                
+                const hpPercent = Math.max(0, e.hp / e.maxHp);
+                ctx.fillStyle = 'black'; ctx.fillRect(e.x - 20, e.y - 50, 40, 6);
+                ctx.fillStyle = '#ef4444'; ctx.fillRect(e.x - 20, e.y - 50, 40 * hpPercent, 6);
+            });
+
+            // ОТРИСОВКА ПУЛЬ
+            projectiles.forEach(p => {
+                // Если это камень (Искатель)
+                if (p.type === 'stone' && Assets.stone.complete) {
+                    ctx.drawImage(Assets.stone, p.x - 10, p.y - 10, 20, 20);
+                } 
+                // Если это плазма (Робот)
+                else if (p.type === 'plasma' && Assets.plasmaBullet.complete && Assets.plasmaBullet.naturalWidth !== 0) {
+                    ctx.drawImage(Assets.plasmaBullet, p.x - 12, p.y - 12, 24, 24);
+                }
+                // Заглушка (Желтый шарик, если картинки нет)
+                else { 
+                    ctx.fillStyle = '#fbbf24'; ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, Math.PI*2); ctx.fill(); 
+                }
+            });
+
+            ctx.restore();
+            
+            // HUD
+            if (ultCooldown > 0) {
+                const x = width - 120, y = 60;
+                ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(x, y, 100, 10);
+                ctx.fillStyle = '#eab308'; ctx.fillRect(x, y, 100 * (ultCooldown/ultCooldownMax), 10);
+                ctx.fillStyle = '#fff'; ctx.font = '10px "Press Start 2P"'; ctx.fillText('УЛЬТА', x+25, y-5);
+            }
+            if (player.slideCooldown > 0) {
+                const x = width - 120, y = 100;
+                ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(x, y, 100, 10);
+                ctx.fillStyle = '#3b82f6'; ctx.fillRect(x, y, 100 * (player.slideCooldown/180), 10);
+                ctx.fillStyle = '#fff'; ctx.font = '10px "Press Start 2P"'; ctx.fillText('РЫВОК', x+25, y-5);
+            }
+            
+            requestAnimationFrame(() => { update(); draw(); });
+        }
+
+        function useUltimate() {
+            const aimAngle = Math.atan2(mouse.y - height/2, mouse.x - width/2);
+            let stoneCount = 10 + player.ultiLevel * 5; 
+            for (let i = 0; i < stoneCount; i++) {
+                const angleOffset = (Math.random() - 0.5) * Math.PI / 3;
+                const spd = 10 + Math.random() * 10;
+                let type = currentHeroType === 'robot' ? 'plasma' : 'stone';
+                projectiles.push({
+                    x: player.x, y: player.y, vx: Math.cos(aimAngle+angleOffset)*spd, vy: Math.sin(aimAngle+angleOffset)*spd, life: 100, type: type
+                });
+            }
+        }
+        
+        function buyAbility(type) {
+            let max = type === 'health' ? 3 : 5;
+            let current = player[`${type}Level`];
+            let cost = abilityCosts[type][current];
+            if (current < max && score >= cost) {
+                score -= cost; player[`${type}Level`]++;
+                document.getElementById('money-display').innerText = score;
+                updateShopUI(); applyAbilityEffects();
+            }
+        }
+        
+        function updateShopUI() {
+            document.getElementById('speed-level').innerText = player.speedLevel;
+            document.getElementById('damage-level').innerText = player.damageLevel;
+            document.getElementById('health-level').innerText = player.healthLevel;
+            document.getElementById('ulti-level').innerText = player.ultiLevel;
+            
+            const updateBtn = (type, lvl, max) => {
+                const btn = document.querySelector(`.buy-${type}`);
+                const costSpan = document.getElementById(`${type}-cost`);
+                if (lvl >= max) {
+                    costSpan.innerText = 'MAX'; btn.disabled = true; btn.classList.add('bg-gray-500');
+                } else {
+                    let cost = abilityCosts[type][lvl];
+                    costSpan.innerText = cost;
+                    btn.disabled = score < cost;
+                    if(score < cost) btn.classList.add('bg-gray-500'); else btn.classList.remove('bg-gray-500');
+                }
+            };
+            updateBtn('speed', player.speedLevel, 5);
+            updateBtn('damage', player.damageLevel, 5);
+            updateBtn('health', player.healthLevel, 3);
+            updateBtn('ulti', player.ultiLevel, 5);
+        }
+        
+        function applyAbilityEffects() {
+            player.speed = player.baseSpeed * (1 + player.speedLevel * 0.2);
+            player.slideSpeed = 6 * (1 + player.speedLevel * 0.2);
+            player.maxLives = 3 + player.healthLevel;
+            if (player.lives < player.maxLives) { player.lives = player.maxLives; updateLivesUI(); }
+            
+            ['speed', 'damage', 'health', 'ulti'].forEach(t => {
+                let ind = document.getElementById(`${t}-indicator`);
+                if(player[`${t}Level`] > 0) {
+                    ind.classList.remove('hidden');
+                    document.getElementById(`${t}-level-indicator`).innerText = player[`${t}Level`];
+                }
+            });
+        }
+        
+        // --- СТАРТ ---
+        function startGame() {
+            Assets.player = new PlayerSprite(currentHeroType); // Создаем выбранного героя
+
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('game-over').classList.add('hidden');
+            document.getElementById('hud-layer').classList.remove('hidden');
+            
+            // Обновляем имя в интерфейсе
+            const names = { adventurer: 'ИСКАТЕЛЬ', robot: 'РОБОТ' };
+            document.getElementById('hero-display').innerText = names[currentHeroType];
+            
+            gameState = 'PLAYING';
+            player.x = 0; player.y = 0;
+            player.lives = 3; player.maxLives = 3; player.invulnerable = 0;
+            player.speedLevel = 0; player.damageLevel = 0; player.healthLevel = 0; player.ultiLevel = 0;
+            enemies = []; projectiles = []; score = 0;
+            
+            updateLivesUI();
+            document.getElementById('money-display').innerText = score;
+            updateShopUI(); applyAbilityEffects();
+            
+            if (spawnIntervalId) clearInterval(spawnIntervalId);
+            for(let i=0; i<5; i++) spawnEnemy();
+            spawnIntervalId = setInterval(spawnEnemy, 1500);
+        }
+
+        draw();
+    </script>
+</body>
+</html>
