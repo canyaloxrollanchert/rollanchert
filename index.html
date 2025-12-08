@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
-        
+
         /* --- БАЗОВЫЕ СТИЛИ --- */
         body { margin: 0; overflow: hidden; background-color: #1a1a1a; user-select: none; font-family: 'Press Start 2P', monospace; image-rendering: pixelated; color: white; }
         canvas { display: block; }
@@ -134,10 +134,43 @@
             z-index: 10;
         }
         
-        /* NEW: Стиль для Rage Mode */
         .rage-mode-active {
             border: 2px solid red;
             box-shadow: 0 0 20px red;
+        }
+
+        /* NEW: UI ПАНЕЛЬ СПОСОБНОСТЕЙ (NORMAL INTERFACE) */
+        #skills-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border: 2px solid #4b5563;
+            border-radius: 8px;
+            z-index: 20;
+        }
+
+        .skill-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100px;
+        }
+        .skill-bar-bg {
+            width: 100%;
+            height: 10px;
+            background: #374151;
+            border: 1px solid white;
+            margin-top: 5px;
+        }
+        .skill-bar-fill {
+            height: 100%;
+            width: 100%;
+            transition: width 0.1s linear;
         }
     </style>
 </head>
@@ -153,13 +186,12 @@
             <div class="text-right">
                 <div id="lives-container" class="mb-2 text-red-500 text-xl tracking-widest">♥♥♥</div>
                 <div class="text-blue-400 text-xs">ГЕРОЙ: <span id="hero-display">...</span></div>
-                <!-- NEW: Индикатор Ярости -->
                 <div id="rage-indicator" class="hidden text-red-600 text-[10px] mt-1 blink">ЯРОСТЬ (CD x2)</div>
             </div>
         </div>
         
         <!-- ИНДИКАТОРЫ И МАГАЗИН -->
-        <div class="flex flex-col items-center pointer-events-auto" style="margin-bottom: 20px;">
+        <div class="flex flex-col items-center pointer-events-auto" style="margin-top: 10px;">
             <div id="abilities-indicator" class="flex justify-center space-x-2 mb-4 gap-2">
                 <div id="speed-indicator" class="hidden w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white pixel-font text-xs"><span id="speed-level-indicator">0</span></div>
                 <div id="damage-indicator" class="hidden w-8 h-8 bg-red-500 rounded-full flex items-center justify-center text-white pixel-font text-xs"><span id="damage-level-indicator">0</span></div>
@@ -169,7 +201,7 @@
             <button id="shop-btn" class="btn-retro" style="background-color: #a855f7;">МАГАЗИН (C)</button>
         </div>
         
-        <!-- АММО (Для Робота) -->
+        <!-- ПАТРОНЫ (Слева внизу) -->
         <div id="ammo-container" class="hidden text-white pixel-font text-xs">
             <div class="mb-1 text-purple-400">ПАТРОНЫ</div>
             <div class="text-2xl" id="ammo-count">12 / 12</div>
@@ -178,6 +210,24 @@
                 <div id="reload-progress" class="h-full bg-yellow-400" style="width: 0%"></div>
             </div>
             <div class="text-[8px] text-gray-400 mt-1">ЖМИ [R]</div>
+        </div>
+
+        <!-- NEW: ПАНЕЛЬ СКИЛЛОВ (ЦЕНТР ВНИЗУ) - НОРМАЛЬНЫЙ ИНТЕРФЕЙС -->
+        <div id="skills-panel" class="text-white pixel-font text-[10px]">
+            <!-- УЛЬТА -->
+            <div class="skill-box">
+                <div id="ult-label">УЛЬТА (F)</div>
+                <div class="skill-bar-bg">
+                    <div id="ult-bar" class="skill-bar-fill bg-green-500"></div>
+                </div>
+            </div>
+            <!-- РЫВОК (Только для робота) -->
+            <div class="skill-box" id="dash-skill-box">
+                <div id="dash-label">РЫВОК (SHFT)</div>
+                <div class="skill-bar-bg">
+                    <div id="dash-bar" class="skill-bar-fill bg-blue-500"></div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -264,7 +314,7 @@
             </div>
         </div>
 
-        <p class="text-gray-400 mb-8 pixel-font text-[10px] text-center">WASD - Ходить | SHIFT - Рывок | ЛКМ - Стрелять | R - Перезарядка | F - Ульта</p>
+        <p class="text-gray-400 mb-8 pixel-font text-[10px] text-center">WASD - Ходить | SHIFT - Рывок (Робот) | ЛКМ - Стрелять | R - Перезарядка | F - Ульта</p>
         <button id="start-btn" class="btn-retro px-8 py-4 text-black font-bold pixel-font text-sm">НАЧАТЬ ЗАЧИСТКУ</button>
     </div>
 
@@ -314,7 +364,7 @@
                     osc.start(now);
                     osc.stop(now + 0.1);
                 }
-                else if (type === 'dash') { // NEW: Звук рывка
+                else if (type === 'dash') {
                     osc.type = 'triangle';
                     osc.frequency.setValueAtTime(300, now);
                     osc.frequency.linearRampToValueAtTime(100, now + 0.2);
@@ -417,10 +467,10 @@
                     this.currentFrame = (this.currentFrame + 1) % this.layers[0].cols;
                 }
             }
-            draw(ctx, x, y, size, angleToPlayer, isHurt, isStunned) { // NEW: isStunned param
+            draw(ctx, x, y, size, angleToPlayer, isHurt, isStunned) { 
                 let anyLoaded = this.layers.some(l => l.loaded);
                 if (!anyLoaded) {
-                    ctx.fillStyle = isHurt ? 'white' : (isStunned ? '#60a5fa' : '#10b981'); // Blue if stunned
+                    ctx.fillStyle = isHurt ? 'white' : (isStunned ? '#60a5fa' : '#10b981'); 
                     ctx.beginPath(); ctx.arc(x, y, size/2, 0, Math.PI*2); ctx.fill();
                     return;
                 }
@@ -429,7 +479,6 @@
                 let deg = angleToPlayer * 180 / Math.PI;
                 if (deg >= -45 && deg < 45) row = 3; else if (deg >= 45 && deg < 135) row = 1; else if (deg >= -135 && deg < -45) row = 0; else row = 2;
 
-                // NEW: Эффект стана (синий оттенок) или урона (белый)
                 if (isHurt) ctx.filter = 'brightness(500%)'; 
                 else if (isStunned) ctx.filter = 'hue-rotate(180deg) brightness(150%)';
 
@@ -440,7 +489,7 @@
                     ctx.drawImage(layer.image, this.currentFrame * frameW, row * frameH, frameW, frameH, x - size / 2, y - size / 2, size, size);
                 });
                 
-                ctx.filter = 'none'; // Сброс фильтра
+                ctx.filter = 'none'; 
             }
         }
         
@@ -466,20 +515,19 @@
             }
         }
         
-        // NEW: Класс для следа (Trail Renderer)
         class Trail {
             constructor(x, y, spriteOrColor, size) {
                 this.x = x; this.y = y;
-                this.life = 0.5; // Время жизни следа
+                this.life = 0.5; 
                 this.size = size;
-                this.spriteOrColor = spriteOrColor; // Для упрощения храним цвет или заглушку
+                this.spriteOrColor = spriteOrColor; 
             }
             update() {
                 this.life -= 0.05;
             }
             draw(ctx) {
                 ctx.globalAlpha = Math.max(0, this.life * 0.5);
-                ctx.fillStyle = '#60a5fa'; // Голубой шлейф
+                ctx.fillStyle = '#60a5fa'; 
                 ctx.beginPath();
                 ctx.arc(this.x, this.y, this.size/2, 0, Math.PI*2);
                 ctx.fill();
@@ -571,7 +619,8 @@
                 }
                 ctx.restore();
 
-                // === АНИМАЦИЯ РУКИ ===
+                // === АНИМАЦИЯ РУКИ (БЕЗ ПАЛОЧКИ) ===
+                // REQUIREMENT 5: Убрана палочка (wand)
                 ctx.save();
                 ctx.translate(x, y); 
                 ctx.translate(0, 5);
@@ -585,16 +634,11 @@
                 ctx.fillStyle = this.heroType === 'robot' ? '#a855f7' : '#fca5a5'; 
 
                 ctx.beginPath();
-                ctx.arc(handDistance, 0, 7, 0, Math.PI*2); // Рука
+                ctx.arc(handDistance, 0, 7, 0, Math.PI*2); // Рука (шарик)
                 ctx.fill();
                 
-                ctx.strokeStyle = ctx.fillStyle;
-                ctx.lineWidth = 4;
-                ctx.beginPath();
-                ctx.moveTo(0, 0);
-                ctx.lineTo(handDistance, 0);
-                ctx.stroke();
-
+                // --- ЗДЕСЬ БЫЛА ПАЛОЧКА (ctx.lineTo...), Я ЕЁ УБРАЛ ---
+                
                 ctx.restore();
             }
         }
@@ -627,28 +671,24 @@
         let width, height;
         let gameState = 'MENU';
         
-        // UPDATE: Новые параметры кулдаунов
-        const ULT_COOLDOWN_TIME = 20000; // 20 сек
-        const DASH_COOLDOWN_TIME = 3000; // 3 сек
+        const ULT_COOLDOWN_TIME = 20000; 
+        const DASH_COOLDOWN_TIME = 3000; 
         
         const player = {
             x: 0, y: 0,
             speed: 3, baseSpeed: 3, slideSpeed: 6,
-            // NEW: Dash variables
             isDashing: false, dashDuration: 0, dashCooldown: 0,
-            
             lives: 3, maxLives: 3, invulnerable: 0,
             moving: false, attacking: false,
             speedLevel: 0, damageLevel: 0, healthLevel: 0, ultiLevel: 0,
-            // ПЕРЕМЕННЫЕ ДЛЯ ПАТРОНОВ
             ammo: 12, maxAmmo: 12, isReloading: false, reloadTimer: 0
         };
         
         let enemies = [];
         let projectiles = [];
         let particles = [];
-        let trails = []; // NEW: Массив для шлейфа
-        let ricochetLines = []; // Визуализация рикошета
+        let trails = []; 
+        let ricochetLines = []; 
         let screenShake = 0;
         const keys = {};
         const mouse = { x: 0, y: 0 };
@@ -686,11 +726,14 @@
             if (e.key.toLowerCase() === 'r' && gameState === 'PLAYING' && currentHeroType === 'robot') {
                 reloadWeapon();
             }
-            // NEW: РЫВОК (Shift)
+            // РЫВОК (Shift)
             if (e.key === 'Shift' && gameState === 'PLAYING') {
                 performDash();
             }
-            if (e.key.toLowerCase() === 'c' && gameState === 'PLAYING') document.getElementById('shop-modal').classList.remove('hidden');
+            // МАГАЗИН (C)
+            if (e.key.toLowerCase() === 'c' && gameState === 'PLAYING') {
+                openShop();
+            }
         });
         window.addEventListener('keyup', e => {
             if (isChatting) {
@@ -713,9 +756,9 @@
                 
                 // --- ЛОГИКА СТРЕЛЬБЫ ---
                 if (currentHeroType === 'robot') {
-                    if (player.isReloading) return; // Нельзя стрелять во время перезарядки
+                    if (player.isReloading) return; 
                     if (player.ammo <= 0) {
-                        reloadWeapon(); // Авто-перезарядка
+                        reloadWeapon(); 
                         return;
                     }
                     player.ammo--;
@@ -748,8 +791,19 @@
         document.getElementById('restart-btn').onclick = startGame;
         document.getElementById('resume-btn').onclick = togglePause;
         document.getElementById('menu-btn').onclick = goToMenu;
-        document.getElementById('shop-btn').onclick = () => document.getElementById('shop-modal').classList.remove('hidden');
-        document.getElementById('close-shop-btn').onclick = () => document.getElementById('shop-modal').classList.add('hidden');
+        
+        // REQUIREMENT 2: Пауза в магазине
+        function openShop() {
+            gameState = 'PAUSED'; // Ставим на паузу
+            document.getElementById('shop-modal').classList.remove('hidden');
+        }
+        function closeShop() {
+            gameState = 'PLAYING'; // Снимаем с паузы
+            document.getElementById('shop-modal').classList.add('hidden');
+        }
+
+        document.getElementById('shop-btn').onclick = openShop;
+        document.getElementById('close-shop-btn').onclick = closeShop;
         
         document.querySelector('.buy-speed').onclick = () => buyAbility('speed');
         document.querySelector('.buy-damage').onclick = () => buyAbility('damage');
@@ -775,11 +829,8 @@
         }
 
         function updateLivesUI() {
-            // Округляем до целого для отображения сердец
             let displayLives = Math.ceil(player.lives);
             document.getElementById('lives-container').innerText = '♥'.repeat(Math.max(0, displayLives));
-            
-            // NEW: Проверка на Rage Mode (меньше 1 жизни из 3, т.е. < 33%, близко к 20%)
             const rageInd = document.getElementById('rage-indicator');
             if (player.lives <= 1) rageInd.classList.remove('hidden');
             else rageInd.classList.add('hidden');
@@ -797,6 +848,40 @@
                 el.classList.add('hidden');
             }
         }
+        
+        // --- NEW: ФУНКЦИЯ ОБНОВЛЕНИЯ НОРМАЛЬНОГО ИНТЕРФЕЙСА (HUD) ---
+        // REQUIREMENT 4: Нормальный интерфейс
+        function updateCooldownUI() {
+            // Ульта
+            const ultBar = document.getElementById('ult-bar');
+            if (ultCooldown > 0) {
+                const percent = (ultCooldown / ULT_COOLDOWN_TIME) * 100;
+                ultBar.style.width = percent + '%';
+                ultBar.style.backgroundColor = player.lives <= 1 ? '#ef4444' : '#eab308'; // Красный при ярости, иначе желтый
+                document.getElementById('ult-label').innerText = 'CD...';
+            } else {
+                ultBar.style.width = '100%';
+                ultBar.style.backgroundColor = '#4ade80'; // Зеленый
+                document.getElementById('ult-label').innerText = 'УЛЬТА (F)';
+            }
+
+            // Рывок (только для робота)
+            const dashBox = document.getElementById('dash-skill-box');
+            if (currentHeroType === 'robot') {
+                dashBox.classList.remove('hidden');
+                const dashBar = document.getElementById('dash-bar');
+                if (player.dashCooldown > 0) {
+                    const percent = (player.dashCooldown / DASH_COOLDOWN_TIME) * 100;
+                    dashBar.style.width = percent + '%';
+                    document.getElementById('dash-label').innerText = '...';
+                } else {
+                    dashBar.style.width = '100%';
+                    document.getElementById('dash-label').innerText = 'РЫВОК (SHIFT)';
+                }
+            } else {
+                dashBox.classList.add('hidden');
+            }
+        }
 
         function reloadWeapon() {
             if (player.isReloading || player.ammo === player.maxAmmo) return;
@@ -807,13 +892,12 @@
             const progress = document.getElementById('reload-progress');
             progress.style.width = '0%';
             
-            // Анимация прогресс бара
             let p = 0;
             const interval = setInterval(() => {
                 p += 5;
                 progress.style.width = p + '%';
                 if (p >= 100) clearInterval(interval);
-            }, 50); // 1000ms total
+            }, 50); 
 
             setTimeout(() => {
                 player.ammo = player.maxAmmo;
@@ -837,43 +921,40 @@
                 hp: type === 'imp' ? 10 : 30,
                 maxHp: type === 'imp' ? 10 : 30,
                 type: type,
-                stunned: 0, // NEW: Таймер стана
-                knockback: { vx: 0, vy: 0 }, // NEW: Вектор отбрасывания
-                flashTime: 0 // NEW: Мигание при уроне
+                stunned: 0, 
+                knockback: { vx: 0, vy: 0 }, 
+                flashTime: 0 
             });
         }
         
-        // NEW: Функция Рывка
+        // --- ФУНКЦИЯ РЫВКА ---
         function performDash() {
+            // REQUIREMENT 3: Откатить подкат у искателя
+            if (currentHeroType !== 'robot') return; // Если не робот, ничего не делаем
+
             if (player.dashCooldown > 0 || player.isDashing) return;
             
-            // Определяем направление
             let dx = 0, dy = 0;
             if (keys['w'] || keys['ц']) dy = -1;
             if (keys['s'] || keys['ы']) dy = 1;
             if (keys['a'] || keys['ф']) dx = -1;
             if (keys['d'] || keys['в']) dx = 1;
             
-            // Если стоим на месте, рывок к мышке
             if (dx === 0 && dy === 0) {
                 const angle = Math.atan2(mouse.y - height/2, mouse.x - width/2);
                 dx = Math.cos(angle);
                 dy = Math.sin(angle);
             } else {
-                // Нормализация
                 const len = Math.hypot(dx, dy);
                 dx /= len; dy /= len;
             }
             
             player.isDashing = true;
-            player.dashDuration = 10; // Длительность рывка (в кадрах)
-            player.dashCooldown = DASH_COOLDOWN_TIME; // Кулдаун
-            
-            // Придаем мгновенную скорость (эмуляция через флаг isDashing в update)
+            player.dashDuration = 10; 
+            player.dashCooldown = DASH_COOLDOWN_TIME; 
             player.dashDir = { x: dx, y: dy };
             
             AudioEngine.play('dash');
-            // Добавляем частиц для эффекта
             for(let i=0; i<5; i++) {
                 particles.push(new Particle(player.x, player.y, '#60a5fa'));
             }
@@ -881,6 +962,9 @@
 
         function update() {
             if (gameState !== 'PLAYING') return;
+
+            // ОБНОВЛЕНИЕ HUD
+            updateCooldownUI();
 
             if (screenShake > 0) screenShake *= 0.9;
 
@@ -892,14 +976,11 @@
                 if (keys['d'] || keys['в']) dx = 1;
             }
             
-            // UPDATE: Логика движения с учетом Рывка
             if (player.isDashing) {
                 player.dashDuration--;
-                // Высокая скорость во время рывка
                 player.x += player.dashDir.x * 25; 
                 player.y += player.dashDir.y * 25;
                 
-                // Создаем след (Trail)
                 if (player.dashDuration % 2 === 0) {
                     trails.push(new Trail(player.x, player.y, null, 40));
                 }
@@ -916,28 +997,23 @@
                     player.x += (dx/len) * currentSpeed;
                     player.y += (dy/len) * currentSpeed;
                     
-                    // Небольшой след при обычном беге
-                    if (Math.random() < 0.1) trails.push(new Trail(player.x, player.y, null, 20));
+                    if (Math.random() < 0.1 && currentHeroType === 'robot') trails.push(new Trail(player.x, player.y, null, 20));
                 }
             }
 
             if (player.invulnerable > 0) player.invulnerable--;
             if (player.dashCooldown > 0) player.dashCooldown -= 1000/60;
             
-            // NEW: Логика Rage Mode (быстрая перезарядка ульты)
-            // Если жизней меньше или равно 1 (из 3), ускоряем перезарядку
             let cdRate = 1;
-            if (player.lives <= 1) cdRate = 2; // x2 скорость восстановления
+            if (player.lives <= 1) cdRate = 2; 
             
             if (ultCooldown > 0) ultCooldown -= (1000 / 60) * cdRate;
             
-            // Удаляем линии рикошета со временем
             for (let i = ricochetLines.length - 1; i >= 0; i--) {
                 ricochetLines[i].life -= 0.05;
                 if(ricochetLines[i].life <= 0) ricochetLines.splice(i, 1);
             }
             
-            // Удаляем следы
             for (let i = trails.length - 1; i >= 0; i--) {
                 trails[i].update();
                 if(trails[i].life <= 0) trails.splice(i, 1);
@@ -948,24 +1024,20 @@
 
             if (Assets.player) Assets.player.update(player.moving, player.attacking, player.speed, false);
 
-            // Прожектили
             for (let i = projectiles.length - 1; i >= 0; i--) {
                 let p = projectiles[i]; p.x += p.vx; p.y += p.vy; p.life--;
                 if (p.life <= 0) projectiles.splice(i, 1);
             }
 
-            // Частицы
             for (let i = particles.length - 1; i >= 0; i--) {
                 let p = particles[i]; p.update();
                 if (p.life <= 0) particles.splice(i, 1);
             }
 
-            // Враги
             Assets.orc.update();
             for (let i = enemies.length - 1; i >= 0; i--) {
                 let e = enemies[i];
                 
-                // NEW: Логика отбрасывания и стана
                 if (e.knockback.vx !== 0 || e.knockback.vy !== 0) {
                     e.x += e.knockback.vx;
                     e.y += e.knockback.vy;
@@ -978,7 +1050,6 @@
                 if (e.stunned > 0) {
                     e.stunned--;
                 } else {
-                    // Обычное движение, если не застанен
                     const angle = Math.atan2(player.y - e.y, player.x - e.x);
                     e.x += Math.cos(angle) * e.speed;
                     e.y += Math.sin(angle) * e.speed;
@@ -987,7 +1058,6 @@
                 
                 if (e.flashTime > 0) e.flashTime--;
 
-                // Столкновение с пулями
                 for (let j = projectiles.length - 1; j >= 0; j--) {
                     let p = projectiles[j];
                     if (Math.hypot(p.x - e.x, p.y - e.y) < 30) {
@@ -1005,7 +1075,6 @@
                     }
                 }
                 
-                // Столкновение с игроком
                 if (Math.hypot(player.x - e.x, player.y - e.y) < 35 && player.invulnerable <= 0 && e.stunned <= 0) {
                     player.lives--;
                     player.invulnerable = 60;
@@ -1043,10 +1112,8 @@
         }
 
         function draw() {
-            // Фон
             ctx.fillStyle = '#222'; ctx.fillRect(0, 0, width, height);
             
-            // Тряска экрана
             let shakeX = (Math.random() - 0.5) * screenShake;
             let shakeY = (Math.random() - 0.5) * screenShake;
 
@@ -1061,7 +1128,6 @@
             ctx.save();
             ctx.translate(-camera.x + shakeX, -camera.y + shakeY);
 
-            // Следы
             trails.forEach(t => t.draw(ctx));
 
             // Игрок
@@ -1070,26 +1136,21 @@
             if (Assets.player) Assets.player.draw(ctx, player.x, player.y, 64, aimAngle);
             ctx.globalAlpha = 1;
             
-            // NEW: Надпись "Полина" под игроком
+            // REQUIREMENT 1: Ник "Робот" только у робота
             ctx.save();
             ctx.font = '10px "Press Start 2P"';
             ctx.textAlign = 'center';
-            // Обводка
-            ctx.strokeStyle = 'black';
-            ctx.lineWidth = 3;
-            ctx.strokeText("Полина", player.x, player.y + 45);
-            // Заливка
-            ctx.fillStyle = '#f472b6'; // Розовый цвет
-            ctx.fillText("Полина", player.x, player.y + 45);
+            if (currentHeroType === 'robot') {
+                ctx.strokeStyle = 'black'; ctx.lineWidth = 3; ctx.strokeText("РОБОТ", player.x, player.y + 45);
+                ctx.fillStyle = '#a855f7'; ctx.fillText("РОБОТ", player.x, player.y + 45);
+            }
             ctx.restore();
 
-            // Частицы
             particles.forEach(p => p.draw(ctx));
             
-            // Линии рикошета (УЛЬТА)
             ricochetLines.forEach(l => {
                 ctx.globalAlpha = Math.max(0, l.life);
-                ctx.strokeStyle = '#a855f7'; // Фиолетовый луч
+                ctx.strokeStyle = '#a855f7'; 
                 ctx.lineWidth = 4;
                 ctx.beginPath();
                 ctx.moveTo(l.x1, l.y1);
@@ -1106,7 +1167,6 @@
                 ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(e.x, e.y+15, 15, 8, 0, 0, Math.PI*2); ctx.fill();
                 
                 if (e.type === 'imp') {
-                    // Мигание при уроне
                     ctx.fillStyle = e.flashTime > 0 ? '#fff' : (e.stunned > 0 ? '#60a5fa' : '#ef4444'); 
                     ctx.beginPath(); ctx.arc(e.x, e.y, 15, 0, Math.PI*2); ctx.fill();
                     if(e.flashTime <= 0) {
@@ -1120,12 +1180,19 @@
                 ctx.fillStyle = 'black'; ctx.fillRect(e.x - 20, e.y - 50, 40, 6);
                 ctx.fillStyle = e.type === 'imp' ? '#fbbf24' : '#ef4444'; ctx.fillRect(e.x - 20, e.y - 50, 40 * hpPercent, 6);
                 
-                // Индикатор стана
                 if (e.stunned > 0) {
                     ctx.fillStyle = '#60a5fa';
                     ctx.font = '8px "Press Start 2P"';
                     ctx.fillText("ZZZ", e.x, e.y - 60);
                 }
+
+                // REQUIREMENT 1: Ник "Полина" у мобов
+                ctx.save();
+                ctx.font = '10px "Press Start 2P"';
+                ctx.textAlign = 'center';
+                ctx.strokeStyle = 'black'; ctx.lineWidth = 3; ctx.strokeText("ПОЛИНА", e.x, e.y - 35);
+                ctx.fillStyle = '#f472b6'; ctx.fillText("ПОЛИНА", e.x, e.y - 35);
+                ctx.restore();
             });
 
             // Пули
@@ -1147,37 +1214,6 @@
             });
 
             ctx.restore();
-            
-            // UI Кулдаунов
-            // 1. УЛЬТА
-            const x = width - 120;
-            let y = 60;
-            if (ultCooldown > 0) {
-                ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(x, y, 100, 10);
-                // Если ярость, полоска красная
-                ctx.fillStyle = player.lives <= 1 ? '#ef4444' : '#eab308'; 
-                ctx.fillRect(x, y, 100 * (ultCooldown/ULT_COOLDOWN_TIME), 10);
-                ctx.fillStyle = '#fff'; ctx.font = '10px "Press Start 2P"'; 
-                ctx.fillText(player.lives <= 1 ? 'ЯРОСТЬ CD' : 'УЛЬТА (20c)', x+15, y-5);
-            } else {
-                if (Math.floor(Date.now() / 500) % 2 === 0) {
-                    ctx.fillStyle = '#4ade80'; 
-                    ctx.font = '10px "Press Start 2P"'; 
-                    ctx.fillText('УЛЬТА ГОТОВА (F)', x-10, y-5);
-                }
-            }
-            
-            // 2. РЫВОК
-            y = 100;
-            if (player.dashCooldown > 0) {
-                ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(x, y, 100, 10);
-                ctx.fillStyle = '#3b82f6'; ctx.fillRect(x, y, 100 * (player.dashCooldown/DASH_COOLDOWN_TIME), 10);
-                ctx.fillStyle = '#fff'; ctx.font = '10px "Press Start 2P"'; ctx.fillText('РЫВОК', x+25, y-5);
-            } else {
-                ctx.fillStyle = '#3b82f6'; 
-                ctx.font = '10px "Press Start 2P"'; 
-                ctx.fillText('РЫВОК (SHFT)', x-5, y-5);
-            }
             
             requestAnimationFrame(() => { update(); draw(); });
         }
@@ -1203,7 +1239,6 @@
             }
         }
 
-        // --- ЛОГИКА РИКОШЕТА (UPDATED) ---
         function performRicochetUlt() {
             const targets = [...enemies];
             if (targets.length === 0) return;
@@ -1212,23 +1247,19 @@
             let hits = 0;
             const maxHits = 4;
             
-            // UPDATE: Урон увеличен на 75%
             const baseDmg = 10 * (1 + player.damageLevel * 0.25);
             const ultDamage = baseDmg * 1.75; 
 
             AudioEngine.play('ricochet');
             triggerAiReaction("Робот врубил турбо-режим!");
             
-            // UPDATE: Экран трясется сильнее
             screenShake = 25; 
 
-            // Алгоритм поиска ближайших соседей
             while (hits < maxHits && targets.length > 0) {
                 let nearest = null;
                 let minDst = Infinity;
                 let nearestIdx = -1;
 
-                // Найти ближайшего
                 for (let i = 0; i < targets.length; i++) {
                     const t = targets[i];
                     const dst = Math.hypot(t.x - currentSource.x, t.y - currentSource.y);
@@ -1240,32 +1271,24 @@
                 }
 
                 if (nearest) {
-                    // Рисуем линию
                     ricochetLines.push({
                         x1: currentSource.x, y1: currentSource.y,
                         x2: nearest.x, y2: nearest.y,
                         life: 1.0
                     });
 
-                    // Наносим усиленный урон
                     nearest.hp -= ultDamage;
                     nearest.flashTime = 10;
-                    
-                    // UPDATE: Стан врага (1 секунда = 60 кадров)
                     nearest.stunned = 60; 
                     
-                    // UPDATE: Отбрасывание (Knockback) от источника удара
                     const knockAngle = Math.atan2(nearest.y - currentSource.y, nearest.x - currentSource.x);
-                    nearest.knockback.vx = Math.cos(knockAngle) * 20; // Сильный толчок
+                    nearest.knockback.vx = Math.cos(knockAngle) * 20; 
                     nearest.knockback.vy = Math.sin(knockAngle) * 20;
 
-                    // UPDATE: Вампиризм (Лечим 10% от урона)
-                    // Поскольку жизни целые (3), будем лечить по чуть-чуть (0.2 сердца)
                     if (player.lives < player.maxLives) {
                         player.lives += 0.2; 
                         if (player.lives > player.maxLives) player.lives = player.maxLives;
                         updateLivesUI();
-                        // Эффект лечения над игроком
                         ctx.save();
                         ctx.fillStyle = '#4ade80';
                         ctx.font = '10px "Press Start 2P"';
@@ -1357,7 +1380,6 @@
             player.speedLevel = 0; player.damageLevel = 0; player.healthLevel = 0; player.ultiLevel = 0;
             player.isDashing = false; player.dashCooldown = 0;
             
-            // Сброс патронов
             player.ammo = player.maxAmmo;
             player.isReloading = false;
 
