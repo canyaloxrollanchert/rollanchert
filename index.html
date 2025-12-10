@@ -139,7 +139,7 @@
             box-shadow: 0 0 20px red;
         }
 
-        /* NEW: UI ПАНЕЛЬ СПОСОБНОСТЕЙ (NORMAL INTERFACE) */
+        /* UI ПАНЕЛЬ СПОСОБНОСТЕЙ */
         #skills-panel {
             position: absolute;
             bottom: 20px;
@@ -212,7 +212,7 @@
             <div class="text-[8px] text-gray-400 mt-1">ЖМИ [R]</div>
         </div>
 
-        <!-- NEW: ПАНЕЛЬ СКИЛЛОВ (ЦЕНТР ВНИЗУ) - НОРМАЛЬНЫЙ ИНТЕРФЕЙС -->
+        <!-- ПАНЕЛЬ СКИЛЛОВ (ЦЕНТР ВНИЗУ) -->
         <div id="skills-panel" class="text-white pixel-font text-[10px]">
             <!-- УЛЬТА -->
             <div class="skill-box">
@@ -221,7 +221,7 @@
                     <div id="ult-bar" class="skill-bar-fill bg-green-500"></div>
                 </div>
             </div>
-            <!-- РЫВОК (Для всех) -->
+            <!-- РЫВОК -->
             <div class="skill-box" id="dash-skill-box">
                 <div id="dash-label">РЫВОК (SHFT)</div>
                 <div class="skill-bar-bg">
@@ -422,6 +422,11 @@
 
         let currentHeroType = 'robot'; 
         let isChatting = false;
+        
+        // --- 1.1 РАЗМЕРЫ КАРТЫ ---
+        // Задаем границы карты (2500x2500 пикселей)
+        const MAP_WIDTH = 2500;
+        const MAP_HEIGHT = 2500;
 
         // --- 2. ФУНКЦИИ ИНТЕРФЕЙСА ---
         window.selectHero = function(type) {
@@ -619,7 +624,7 @@
                 }
                 ctx.restore();
 
-                // === АНИМАЦИЯ РУКИ (ИСПРАВЛЕНИЕ: Только для робота) ===
+                // === АНИМАЦИЯ РУКИ (Только для робота) ===
                 if (this.heroType === 'robot') {
                     ctx.save();
                     ctx.translate(x, y); 
@@ -646,6 +651,7 @@
         const Assets = {
             orc: null,
             floor: new Image(),
+            map: new Image(), // НОВАЯ КАРТА
             stone: new Image(),
             plasmaBullet: new Image(),
             
@@ -658,6 +664,8 @@
                 ], 8);
                 
                 this.floor.src = 'img/floor.png';
+                // ВНИМАНИЕ: Загружаем Mockup1 как карту
+                this.map.src = 'img/TopDownFantasy-Forest/Mockup1.png'; 
                 this.stone.src = 'img/weapons/stone.png';
                 this.plasmaBullet.src = 'img/player2/bullet_plasma.png'; 
             }
@@ -674,7 +682,7 @@
         const DASH_COOLDOWN_TIME = 3000; 
         
         const player = {
-            x: 0, y: 0,
+            x: 500, y: 500, // Старт не в 0,0, а чуть внутри карты
             speed: 3, baseSpeed: 3, slideSpeed: 6,
             isDashing: false, dashDuration: 0, dashCooldown: 0,
             lives: 3, maxLives: 3, invulnerable: 0,
@@ -791,10 +799,9 @@
         document.getElementById('resume-btn').onclick = togglePause;
         document.getElementById('menu-btn').onclick = goToMenu;
         
-        // REQUIREMENT: Починить магазин (обновление UI)
         function openShop() {
             gameState = 'PAUSED'; 
-            updateShopUI(); // Сразу обновляем цены и доступность
+            updateShopUI(); // Сразу обновляем цены
             document.getElementById('shop-modal').classList.remove('hidden');
         }
         function closeShop() {
@@ -836,7 +843,6 @@
             else rageInd.classList.add('hidden');
         }
 
-        // --- UI ПЕРЕЗАРЯДКИ ---
         function updateAmmoUI() {
             const el = document.getElementById('ammo-container');
             if (currentHeroType === 'robot') {
@@ -849,24 +855,23 @@
             }
         }
         
-        // --- ФУНКЦИЯ ОБНОВЛЕНИЯ ИНТЕРФЕЙСА (HUD) ---
         function updateCooldownUI() {
             // Ульта
             const ultBar = document.getElementById('ult-bar');
             if (ultCooldown > 0) {
                 const percent = (ultCooldown / ULT_COOLDOWN_TIME) * 100;
                 ultBar.style.width = percent + '%';
-                ultBar.style.backgroundColor = player.lives <= 1 ? '#ef4444' : '#eab308'; // Красный при ярости, иначе желтый
+                ultBar.style.backgroundColor = player.lives <= 1 ? '#ef4444' : '#eab308'; 
                 document.getElementById('ult-label').innerText = 'CD...';
             } else {
                 ultBar.style.width = '100%';
-                ultBar.style.backgroundColor = '#4ade80'; // Зеленый
+                ultBar.style.backgroundColor = '#4ade80';
                 document.getElementById('ult-label').innerText = 'УЛЬТА (F)';
             }
 
-            // Рывок (Теперь для всех)
+            // Рывок
             const dashBox = document.getElementById('dash-skill-box');
-            dashBox.classList.remove('hidden'); // Всегда показываем
+            dashBox.classList.remove('hidden');
             const dashBar = document.getElementById('dash-bar');
             if (player.dashCooldown > 0) {
                 const percent = (player.dashCooldown / DASH_COOLDOWN_TIME) * 100;
@@ -907,11 +912,20 @@
             if(gameState !== 'PLAYING') return;
             const angle = Math.random() * Math.PI * 2;
             const dist = 900;
+            
+            // Спавним врагов вокруг игрока, но проверяем границы карты
+            let spawnX = player.x + Math.cos(angle) * dist;
+            let spawnY = player.y + Math.sin(angle) * dist;
+            
+            // Если враг за картой, прижимаем его к краю
+            spawnX = Math.max(0, Math.min(spawnX, MAP_WIDTH));
+            spawnY = Math.max(0, Math.min(spawnY, MAP_HEIGHT));
+
             const type = Math.random() > 0.7 ? 'imp' : 'orc'; 
             
             enemies.push({
-                x: player.x + Math.cos(angle) * dist,
-                y: player.y + Math.sin(angle) * dist,
+                x: spawnX,
+                y: spawnY,
                 speed: type === 'imp' ? 3.5 : (1.5 + Math.random()),
                 hp: type === 'imp' ? 10 : 30,
                 maxHp: type === 'imp' ? 10 : 30,
@@ -922,9 +936,7 @@
             });
         }
         
-        // --- ФУНКЦИЯ РЫВКА (ИСПРАВЛЕНО: Доступно всем) ---
         function performDash() {
-            // Убрана проверка типа героя
             if (player.dashCooldown > 0 || player.isDashing) return;
             
             let dx = 0, dy = 0;
@@ -956,7 +968,6 @@
         function update() {
             if (gameState !== 'PLAYING') return;
 
-            // ОБНОВЛЕНИЕ HUD
             updateCooldownUI();
 
             if (screenShake > 0) screenShake *= 0.9;
@@ -990,10 +1001,15 @@
                     player.x += (dx/len) * currentSpeed;
                     player.y += (dy/len) * currentSpeed;
                     
-                    // Трейлы только для робота (стилистически)
                     if (Math.random() < 0.1 && currentHeroType === 'robot') trails.push(new Trail(player.x, player.y, null, 20));
                 }
             }
+            
+            // --- ОГРАНИЧЕНИЕ КАРТЫ (СТЕНЫ) ---
+            if (player.x < 0) player.x = 0;
+            if (player.y < 0) player.y = 0;
+            if (player.x > MAP_WIDTH) player.x = MAP_WIDTH;
+            if (player.y > MAP_HEIGHT) player.y = MAP_HEIGHT;
 
             if (player.invulnerable > 0) player.invulnerable--;
             if (player.dashCooldown > 0) player.dashCooldown -= 1000/60;
@@ -1106,21 +1122,37 @@
         }
 
         function draw() {
-            ctx.fillStyle = '#222'; ctx.fillRect(0, 0, width, height);
+            // Фон за пределами карты
+            ctx.fillStyle = '#0f0f0f'; 
+            ctx.fillRect(0, 0, width, height);
             
             let shakeX = (Math.random() - 0.5) * screenShake;
             let shakeY = (Math.random() - 0.5) * screenShake;
 
             ctx.save();
-            ctx.translate(-camera.x % 128 + shakeX, -camera.y % 128 + shakeY);
-            if (Assets.floor.complete && Assets.floor.naturalWidth !== 0) {
-                const pat = ctx.createPattern(Assets.floor, 'repeat');
-                ctx.fillStyle = pat; ctx.fillRect(-128, -128, width + 256, height + 256);
-            }
-            ctx.restore();
-
-            ctx.save();
             ctx.translate(-camera.x + shakeX, -camera.y + shakeY);
+
+            // --- ОТРИСОВКА КАРТЫ ---
+            if (Assets.map.complete && Assets.map.naturalWidth !== 0) {
+                // Если картинка загрузилась - рисуем её растянутой до MAP_WIDTH x MAP_HEIGHT
+                // Рисуем Mockup1.png на весь размер карты (2500x2500)
+                ctx.drawImage(Assets.map, 0, 0, MAP_WIDTH, MAP_HEIGHT);
+            } else {
+                // Фоллбэк, если картинка не найдена
+                if (Assets.floor.complete && Assets.floor.naturalWidth !== 0) {
+                    const pat = ctx.createPattern(Assets.floor, 'repeat');
+                    ctx.fillStyle = pat; 
+                    ctx.fillRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
+                } else {
+                    ctx.fillStyle = '#222';
+                    ctx.fillRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
+                }
+                
+                // Рисуем границы (стены)
+                ctx.strokeStyle = '#ef4444';
+                ctx.lineWidth = 10;
+                ctx.strokeRect(0, 0, MAP_WIDTH, MAP_HEIGHT);
+            }
 
             trails.forEach(t => t.draw(ctx));
 
@@ -1130,7 +1162,7 @@
             if (Assets.player) Assets.player.draw(ctx, player.x, player.y, 64, aimAngle);
             ctx.globalAlpha = 1;
             
-            // Ник "Робот" только у робота
+            // Ник "Робот"
             ctx.save();
             ctx.font = '10px "Press Start 2P"';
             ctx.textAlign = 'center';
@@ -1180,7 +1212,7 @@
                     ctx.fillText("ZZZ", e.x, e.y - 60);
                 }
 
-                // REQUIREMENT: Надпись ПОЛИНА снизу (y + 45)
+                // Надпись ПОЛИНА снизу
                 ctx.save();
                 ctx.font = '10px "Press Start 2P"';
                 ctx.textAlign = 'center';
@@ -1369,7 +1401,8 @@
             document.getElementById('hero-display').innerText = names[currentHeroType];
             
             gameState = 'PLAYING';
-            player.x = 0; player.y = 0;
+            // Спавним игрока чуть в центре, чтобы не уперся сразу в стену
+            player.x = 500; player.y = 500;
             player.lives = 3; player.maxLives = 3; player.invulnerable = 0;
             player.speedLevel = 0; player.damageLevel = 0; player.healthLevel = 0; player.ultiLevel = 0;
             player.isDashing = false; player.dashCooldown = 0;
