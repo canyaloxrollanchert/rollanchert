@@ -221,7 +221,7 @@
                     <div id="ult-bar" class="skill-bar-fill bg-green-500"></div>
                 </div>
             </div>
-            <!-- РЫВОК (Только для робота) -->
+            <!-- РЫВОК (Для всех) -->
             <div class="skill-box" id="dash-skill-box">
                 <div id="dash-label">РЫВОК (SHFT)</div>
                 <div class="skill-bar-bg">
@@ -314,7 +314,7 @@
             </div>
         </div>
 
-        <p class="text-gray-400 mb-8 pixel-font text-[10px] text-center">WASD - Ходить | SHIFT - Рывок (Робот) | ЛКМ - Стрелять | R - Перезарядка | F - Ульта</p>
+        <p class="text-gray-400 mb-8 pixel-font text-[10px] text-center">WASD - Ходить | SHIFT - Рывок | ЛКМ - Стрелять | R - Перезарядка | F - Ульта</p>
         <button id="start-btn" class="btn-retro px-8 py-4 text-black font-bold pixel-font text-sm">НАЧАТЬ ЗАЧИСТКУ</button>
     </div>
 
@@ -619,27 +619,26 @@
                 }
                 ctx.restore();
 
-                // === АНИМАЦИЯ РУКИ (БЕЗ ПАЛОЧКИ) ===
-                // REQUIREMENT 5: Убрана палочка (wand)
-                ctx.save();
-                ctx.translate(x, y); 
-                ctx.translate(0, 5);
-                ctx.rotate(angleToPlayer);
+                // === АНИМАЦИЯ РУКИ (ИСПРАВЛЕНИЕ: Только для робота) ===
+                if (this.heroType === 'robot') {
+                    ctx.save();
+                    ctx.translate(x, y); 
+                    ctx.translate(0, 5);
+                    ctx.rotate(angleToPlayer);
 
-                let handDistance = 20; 
-                if (player.attacking) {
-                     handDistance = 35;
+                    let handDistance = 20; 
+                    if (player.attacking) {
+                        handDistance = 35;
+                    }
+
+                    ctx.fillStyle = '#a855f7'; 
+
+                    ctx.beginPath();
+                    ctx.arc(handDistance, 0, 7, 0, Math.PI*2); // Рука (шарик)
+                    ctx.fill();
+                    
+                    ctx.restore();
                 }
-
-                ctx.fillStyle = this.heroType === 'robot' ? '#a855f7' : '#fca5a5'; 
-
-                ctx.beginPath();
-                ctx.arc(handDistance, 0, 7, 0, Math.PI*2); // Рука (шарик)
-                ctx.fill();
-                
-                // --- ЗДЕСЬ БЫЛА ПАЛОЧКА (ctx.lineTo...), Я ЕЁ УБРАЛ ---
-                
-                ctx.restore();
             }
         }
 
@@ -792,13 +791,14 @@
         document.getElementById('resume-btn').onclick = togglePause;
         document.getElementById('menu-btn').onclick = goToMenu;
         
-        // REQUIREMENT 2: Пауза в магазине
+        // REQUIREMENT: Починить магазин (обновление UI)
         function openShop() {
-            gameState = 'PAUSED'; // Ставим на паузу
+            gameState = 'PAUSED'; 
+            updateShopUI(); // Сразу обновляем цены и доступность
             document.getElementById('shop-modal').classList.remove('hidden');
         }
         function closeShop() {
-            gameState = 'PLAYING'; // Снимаем с паузы
+            gameState = 'PLAYING'; 
             document.getElementById('shop-modal').classList.add('hidden');
         }
 
@@ -849,8 +849,7 @@
             }
         }
         
-        // --- NEW: ФУНКЦИЯ ОБНОВЛЕНИЯ НОРМАЛЬНОГО ИНТЕРФЕЙСА (HUD) ---
-        // REQUIREMENT 4: Нормальный интерфейс
+        // --- ФУНКЦИЯ ОБНОВЛЕНИЯ ИНТЕРФЕЙСА (HUD) ---
         function updateCooldownUI() {
             // Ульта
             const ultBar = document.getElementById('ult-bar');
@@ -865,21 +864,17 @@
                 document.getElementById('ult-label').innerText = 'УЛЬТА (F)';
             }
 
-            // Рывок (только для робота)
+            // Рывок (Теперь для всех)
             const dashBox = document.getElementById('dash-skill-box');
-            if (currentHeroType === 'robot') {
-                dashBox.classList.remove('hidden');
-                const dashBar = document.getElementById('dash-bar');
-                if (player.dashCooldown > 0) {
-                    const percent = (player.dashCooldown / DASH_COOLDOWN_TIME) * 100;
-                    dashBar.style.width = percent + '%';
-                    document.getElementById('dash-label').innerText = '...';
-                } else {
-                    dashBar.style.width = '100%';
-                    document.getElementById('dash-label').innerText = 'РЫВОК (SHIFT)';
-                }
+            dashBox.classList.remove('hidden'); // Всегда показываем
+            const dashBar = document.getElementById('dash-bar');
+            if (player.dashCooldown > 0) {
+                const percent = (player.dashCooldown / DASH_COOLDOWN_TIME) * 100;
+                dashBar.style.width = percent + '%';
+                document.getElementById('dash-label').innerText = '...';
             } else {
-                dashBox.classList.add('hidden');
+                dashBar.style.width = '100%';
+                document.getElementById('dash-label').innerText = 'РЫВОК (SHIFT)';
             }
         }
 
@@ -927,11 +922,9 @@
             });
         }
         
-        // --- ФУНКЦИЯ РЫВКА ---
+        // --- ФУНКЦИЯ РЫВКА (ИСПРАВЛЕНО: Доступно всем) ---
         function performDash() {
-            // REQUIREMENT 3: Откатить подкат у искателя
-            if (currentHeroType !== 'robot') return; // Если не робот, ничего не делаем
-
+            // Убрана проверка типа героя
             if (player.dashCooldown > 0 || player.isDashing) return;
             
             let dx = 0, dy = 0;
@@ -997,6 +990,7 @@
                     player.x += (dx/len) * currentSpeed;
                     player.y += (dy/len) * currentSpeed;
                     
+                    // Трейлы только для робота (стилистически)
                     if (Math.random() < 0.1 && currentHeroType === 'robot') trails.push(new Trail(player.x, player.y, null, 20));
                 }
             }
@@ -1136,7 +1130,7 @@
             if (Assets.player) Assets.player.draw(ctx, player.x, player.y, 64, aimAngle);
             ctx.globalAlpha = 1;
             
-            // REQUIREMENT 1: Ник "Робот" только у робота
+            // Ник "Робот" только у робота
             ctx.save();
             ctx.font = '10px "Press Start 2P"';
             ctx.textAlign = 'center';
@@ -1186,12 +1180,12 @@
                     ctx.fillText("ZZZ", e.x, e.y - 60);
                 }
 
-                // REQUIREMENT 1: Ник "Полина" у мобов
+                // REQUIREMENT: Надпись ПОЛИНА снизу (y + 45)
                 ctx.save();
                 ctx.font = '10px "Press Start 2P"';
                 ctx.textAlign = 'center';
-                ctx.strokeStyle = 'black'; ctx.lineWidth = 3; ctx.strokeText("ПОЛИНА", e.x, e.y - 35);
-                ctx.fillStyle = '#f472b6'; ctx.fillText("ПОЛИНА", e.x, e.y - 35);
+                ctx.strokeStyle = 'black'; ctx.lineWidth = 3; ctx.strokeText("ПОЛИНА", e.x, e.y + 45);
+                ctx.fillStyle = '#f472b6'; ctx.fillText("ПОЛИНА", e.x, e.y + 45);
                 ctx.restore();
             });
 
