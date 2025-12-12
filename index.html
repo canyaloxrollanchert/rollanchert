@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>РОЛЛАНЧЕРТПОГГАНЫЙЕЧТЬЖЕ(ULTIMATE BOSS EDITION)</title>
+    <title>РОЛЛАНЧЕРТПОГГАНЫЙЕЧТЬЖЕ (FIXED EDITION)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
@@ -12,8 +12,14 @@
         body { 
             margin: 0; overflow: hidden; background-color: #1a1a1a; user-select: none; 
             font-family: 'Press Start 2P', monospace; image-rendering: pixelated; color: white; 
-            cursor: none; /* СКРЫВАЕМ СИСТЕМНЫЙ КУРСОР */
+            cursor: none; /* ПО УМОЛЧАНИЮ КУРСОР СКРЫТ */
         }
+        
+        /* КЛАСС ДЛЯ ОТОБРАЖЕНИЯ КУРСОРА В МЕНЮ */
+        body.show-cursor {
+            cursor: default !important;
+        }
+
         canvas { display: block; }
         
         .hidden { display: none !important; }
@@ -26,7 +32,7 @@
             box-shadow: 4px 4px 0px #000; 
             transition: transform 0.1s; 
             padding: 10px 20px;
-            cursor: none; /* Чтобы при наведении не появлялся системный курсор */
+            cursor: inherit; /* Курсор наследуется от body */
             font-size: 12px;
             font-weight: bold;
             font-family: 'Press Start 2P', cursive;
@@ -34,7 +40,7 @@
         .btn-retro:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0px #000; }
         .btn-retro:disabled { background: #6b7280; cursor: not-allowed; box-shadow: none; transform: none; }
         
-        .modal-overlay { background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(5px); cursor: auto; }
+        .modal-overlay { background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(5px); }
         
         /* ГЕРОИ */
         .hero-card {
@@ -67,7 +73,7 @@
         #boss-hp-bar-fill { width: 100%; height: 100%; background: #ef4444; transition: width 0.1s; }
         #boss-name { text-align: center; color: #ef4444; font-size: 14px; margin-bottom: 5px; text-shadow: 2px 2px 0 #000; }
 
-        /* ЧАТ (Твой оригинальный стиль) */
+        /* ЧАТ */
         #ai-chat-container {
             position: absolute; bottom: 20px; right: 20px; width: 320px; z-index: 100;
             font-family: 'Press Start 2P', cursive; pointer-events: auto;
@@ -111,9 +117,7 @@
         .skill-bar-fill { height: 100%; width: 100%; transition: width 0.1s linear; }
     </style>
 </head>
-<body>
-
-    <div id="hud-layer" class="absolute top-0 left-0 w-full h-full pointer-events-none p-5 flex flex-col justify-between hidden z-10">
+<body class="show-cursor"> <div id="hud-layer" class="absolute top-0 left-0 w-full h-full pointer-events-none p-5 flex flex-col justify-between hidden z-10">
         <div class="flex justify-between items-start text-white pixel-font text-xs md:text-sm">
             <div>
                 <div class="text-yellow-400 mb-2">УБИТО: <span id="kills-display">0</span>/30</div>
@@ -263,7 +267,7 @@
     <canvas id="gameCanvas"></canvas>
 
     <script>
-        // --- 0. ЗВУКОВОЙ ДВИЖОК (ОРИГИНАЛЬНЫЙ + SWORD) ---
+        // --- 0. ЗВУКОВОЙ ДВИЖОК ---
         const AudioEngine = {
             ctx: null,
             init: function() {
@@ -356,7 +360,7 @@
             msgContainer.appendChild(div); msgContainer.scrollTop = msgContainer.scrollHeight;
         }
 
-        // --- 3. ИГРОВОЙ ДВИЖОК (ТВОИ КЛАССЫ) ---
+        // --- 3. ИГРОВОЙ ДВИЖОК ---
 
         class SpriteLayer {
             constructor(src, cols, rows) {
@@ -514,7 +518,6 @@
                 this.map.src = 'img/TopDownFantasy-Forest/Mockup1.png'; 
                 this.stone.src = 'img/weapons/stone.png';
                 this.plasmaBullet.src = 'img/player2/bullet_plasma.png'; 
-                // НОВОЕ
                 this.boss.src = 'image_d8ebbd.png'; 
                 this.sword.src = 'Icon28_02.png';
             }
@@ -537,7 +540,6 @@
             moving: false, attacking: false,
             speedLevel: 0, damageLevel: 0, healthLevel: 0, ultiLevel: 0,
             ammo: 12, maxAmmo: 12, isReloading: false, reloadTimer: 0,
-            // НОВЫЕ ПОЛЯ
             hasSword: false, isSwinging: false, swingTimer: 0, swingAngle: 0
         };
         
@@ -551,7 +553,7 @@
         const mouse = { x: 0, y: 0 };
         const camera = { x: 0, y: 0 };
         let score = 0;
-        let kills = 0; // СЧЕТЧИК УБИЙСТВ
+        let kills = 0;
         let spawnIntervalId;
         let ultCooldown = 0;
         
@@ -580,7 +582,7 @@
         });
         window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
         
-        // --- АТАКА (МЕЧ ИЛИ СТРЕЛЬБА) ---
+        // --- АТАКА ---
         window.addEventListener('mousedown', (e) => {
             if (e.target.closest('#ai-chat-container') || e.target.closest('#hud-layer') || e.target.closest('.modal-overlay')) return;
 
@@ -589,12 +591,10 @@
                 const cooldown = (currentHeroType === 'robot' && !player.hasSword) ? 250 : 500;
                 
                 if (player.hasSword) {
-                     // ЛОГИКА МЕЧА
                      if (!player.isSwinging) {
                          performSwordSwing();
                      }
                 } else {
-                    // ЛОГИКА СТРЕЛЬБЫ
                     if (currentTime - (player.lastThrowTime || 0) < cooldown) return;
                     if (currentHeroType === 'robot') {
                         if (player.isReloading) return; 
@@ -624,11 +624,9 @@
             const aimAngle = Math.atan2(mouse.y - height/2, mouse.x - width/2);
             player.swingAngle = aimAngle;
 
-            // АоЕ урон
             const range = 120;
-            const dmg = 100 * (1 + player.damageLevel * 0.5); // Меч дамажит сильно
+            const dmg = 100 * (1 + player.damageLevel * 0.5); 
 
-            // Проверка врагов
             enemies.forEach(e => {
                 const dist = Math.hypot(e.x - player.x, e.y - player.y);
                 if (dist < range) {
@@ -637,7 +635,7 @@
                     while (diff > Math.PI) diff -= Math.PI*2;
                     while (diff < -Math.PI) diff += Math.PI*2;
                     
-                    if (Math.abs(diff) < 1.2) { // Сектор удара
+                    if (Math.abs(diff) < 1.2) { 
                         e.hp -= dmg;
                         e.knockback.vx = Math.cos(aimAngle) * 15;
                         e.knockback.vy = Math.sin(aimAngle) * 15;
@@ -648,7 +646,6 @@
                 }
             });
 
-            // Проверка босса
             if (boss) {
                 const dist = Math.hypot(boss.x - player.x, boss.y - player.y);
                 if (dist < range + 40) {
@@ -658,7 +655,6 @@
                      if (boss.hp <= 0) killBoss();
                 }
             }
-
             setTimeout(() => { player.attacking = false; }, 250);
         }
 
@@ -673,11 +669,28 @@
         document.querySelector('.buy-health').onclick = () => buyAbility('health');
         document.querySelector('.buy-ulti').onclick = () => buyAbility('ulti');
 
-        function openShop() { gameState = 'PAUSED'; updateShopUI(); document.getElementById('shop-modal').classList.remove('hidden'); }
-        function closeShop() { gameState = 'PLAYING'; document.getElementById('shop-modal').classList.add('hidden'); }
+        function openShop() { 
+            gameState = 'PAUSED'; 
+            document.body.classList.add('show-cursor'); // ПОКАЗЫВАЕМ КУРСОР
+            updateShopUI(); 
+            document.getElementById('shop-modal').classList.remove('hidden'); 
+        }
+        function closeShop() { 
+            gameState = 'PLAYING'; 
+            document.body.classList.remove('show-cursor'); // СКРЫВАЕМ КУРСОР
+            document.getElementById('shop-modal').classList.add('hidden'); 
+        }
         function togglePause() { 
-            if (gameState === 'PLAYING') { gameState = 'PAUSED'; document.getElementById('pause-menu').classList.remove('hidden'); }
-            else if (gameState === 'PAUSED') { gameState = 'PLAYING'; document.getElementById('pause-menu').classList.add('hidden'); }
+            if (gameState === 'PLAYING') { 
+                gameState = 'PAUSED'; 
+                document.body.classList.add('show-cursor'); // ПОКАЗЫВАЕМ КУРСОР
+                document.getElementById('pause-menu').classList.remove('hidden'); 
+            }
+            else if (gameState === 'PAUSED') { 
+                gameState = 'PLAYING'; 
+                document.body.classList.remove('show-cursor'); // СКРЫВАЕМ КУРСОР
+                document.getElementById('pause-menu').classList.add('hidden'); 
+            }
         }
         function goToMenu() { location.reload(); }
 
@@ -741,9 +754,8 @@
 
         function spawnEnemy() {
             if(gameState !== 'PLAYING') return;
-            if(isBossFight && boss) return; // Не спавним во время босса
+            if(isBossFight && boss) return; 
             
-            // ПРОВЕРКА НА БОССА
             if (kills >= 30 && !isBossFight && !isHardcore) {
                 startBossFight();
                 return;
@@ -755,7 +767,7 @@
             let spawnY = Math.max(0, Math.min(player.y + Math.sin(angle) * dist, MAP_HEIGHT));
 
             const type = Math.random() > 0.7 ? 'imp' : 'orc'; 
-            let hpMult = isHardcore ? 3 : 1; // Хардкор: враги жирнее
+            let hpMult = isHardcore ? 3 : 1;
             
             enemies.push({
                 x: spawnX, y: spawnY,
@@ -770,7 +782,7 @@
             isBossFight = true;
             triggerAiReaction("О боже, это он! БОСС! Я боюсь!");
             document.getElementById('boss-ui').style.display = 'block';
-            enemies = []; // Чистим мелочь
+            enemies = []; 
             
             boss = {
                 x: MAP_WIDTH / 2, y: -100,
@@ -791,10 +803,7 @@
             
             document.getElementById('sword-notification').classList.remove('hidden');
             updateAmmoUI();
-            
             triggerAiReaction("Мы убили его! И этот меч... он такой большой!");
-            
-            // Включаем хардкор спавн
             clearInterval(spawnIntervalId);
             spawnIntervalId = setInterval(spawnEnemy, 800);
         }
@@ -823,16 +832,13 @@
             // --- БОСС ЛОГИКА ---
             if (boss) {
                 boss.timer++;
-                // Движение к игроку
                 const angle = Math.atan2(player.y - boss.y, player.x - boss.x);
                 if (Math.hypot(player.x - boss.x, player.y - boss.y) > 150) {
                     boss.x += Math.cos(angle) * 2;
                     boss.y += Math.sin(angle) * 2;
                 }
                 
-                // Атаки босса
                 if (boss.timer % 100 === 0) {
-                     // Стрельба веером
                      for(let i=-2; i<=2; i++) {
                          let a = angle + i*0.2;
                          projectiles.push({x: boss.x, y: boss.y, vx: Math.cos(a)*6, vy: Math.sin(a)*6, life: 120, type: 'boss'});
@@ -840,10 +846,8 @@
                 }
                 if (boss.flashTime > 0) boss.flashTime--;
                 
-                // UI HP
                 document.getElementById('boss-hp-bar-fill').style.width = (boss.hp / boss.maxHp * 100) + "%";
                 
-                // Столкновение с игроком
                 if (Math.hypot(player.x - boss.x, player.y - boss.y) < 60 && player.invulnerable <= 0) {
                     player.lives--; player.invulnerable = 60; updateLivesUI(); AudioEngine.play('hit');
                 }
@@ -889,12 +893,12 @@
 
             camera.x = player.x - width/2; camera.y = player.y - height/2;
 
-            if (Assets.player) Assets.player.update(player.moving, player.attacking, player.speed, false);
+            // --- ИСПРАВЛЕНИЕ СЛАЙДА: Передаем player.isDashing вместо false ---
+            if (Assets.player) Assets.player.update(player.moving, player.attacking, player.speed, player.isDashing);
 
             for (let i = projectiles.length - 1; i >= 0; i--) {
                 let p = projectiles[i]; p.x += p.vx; p.y += p.vy; p.life--;
                 
-                // Проверка попадания в игрока (от босса)
                 if (p.type === 'boss') {
                      if (Math.hypot(p.x - player.x, p.y - player.y) < 20 && player.invulnerable <= 0) {
                          player.lives--; player.invulnerable = 60; updateLivesUI(); p.life = 0;
@@ -922,10 +926,9 @@
                 }
                 if (e.flashTime > 0) e.flashTime--;
 
-                // Коллизия пуль с врагами
                 for (let j = projectiles.length - 1; j >= 0; j--) {
                     let p = projectiles[j];
-                    if (p.type === 'boss') continue; // Пули босса не бьют врагов
+                    if (p.type === 'boss') continue;
 
                     if (Math.hypot(p.x - e.x, p.y - e.y) < 30) {
                         e.hp -= 10 * (1 + player.damageLevel * 0.25); e.flashTime = 5;
@@ -937,7 +940,6 @@
                     }
                 }
                 
-                // Коллизия пули с боссом
                 if (boss) {
                      for (let j = projectiles.length - 1; j >= 0; j--) {
                         let p = projectiles[j];
@@ -959,6 +961,7 @@
                     if (player.lives <= 0) {
                         gameState = 'GAMEOVER';
                         document.getElementById('final-score').innerText = score;
+                        document.body.classList.add('show-cursor'); // ПОКАЗАТЬ КУРСОР НА ГЕЙМОВЕРЕ
                         document.getElementById('game-over').classList.remove('hidden');
                     }
                 }
@@ -1000,7 +1003,6 @@
             }
             ctx.restore();
             
-            // МЕЧ
             if (player.hasSword) {
                 ctx.save();
                 ctx.translate(player.x, player.y);
@@ -1011,7 +1013,6 @@
                 }
                 ctx.rotate(rot);
                 if (Assets.sword.complete && Assets.sword.naturalWidth !== 0) {
-                     // Рисуем спрайт меча. Смещаем, чтобы рукоять была в руке
                      ctx.drawImage(Assets.sword, 20, -32, 64, 64);
                 } else {
                      ctx.fillStyle = 'cyan'; ctx.fillRect(20, -2, 60, 4);
@@ -1027,7 +1028,6 @@
                 ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(l.x2, l.y2, 10 * l.life, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = 1;
             });
 
-            // Враги
             enemies.forEach(e => {
                 ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(e.x, e.y+15, 15, 8, 0, 0, Math.PI*2); ctx.fill();
                 if (e.type === 'imp') {
@@ -1042,7 +1042,6 @@
                 if (e.stunned > 0) { ctx.fillStyle = '#60a5fa'; ctx.font = '8px "Press Start 2P"'; ctx.fillText("ZZZ", e.x, e.y - 60); }
             });
 
-            // БОСС
             if (boss) {
                 if (Assets.boss.complete) {
                     if (boss.flashTime > 0) ctx.filter = "brightness(500%)";
@@ -1054,7 +1053,6 @@
                 }
             }
 
-            // Пули
             projectiles.forEach(p => {
                 if (p.type === 'boss') {
                     ctx.fillStyle = 'red'; ctx.beginPath(); ctx.arc(p.x, p.y, 8, 0, Math.PI*2); ctx.fill();
@@ -1070,19 +1068,20 @@
 
             ctx.restore();
             
-            // --- ПРИЦЕЛ (CROSSHAIR) ---
             drawCrosshair();
 
             requestAnimationFrame(() => { update(); draw(); });
         }
         
         function drawCrosshair() {
+            // Если игра на паузе, не рисуем кастомный прицел, так как есть системный
+            if (gameState !== 'PLAYING') return;
+
             const cx = mouse.x; const cy = mouse.y;
             ctx.strokeStyle = player.hasSword ? '#22d3ee' : '#a855f7'; ctx.lineWidth = 2;
             ctx.beginPath(); ctx.arc(cx, cy, 12, 0, Math.PI*2); ctx.stroke();
             ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(cx, cy, 2, 0, Math.PI*2); ctx.fill();
             
-            // Краснеет при наведении
             let mx = mouse.x + camera.x; let my = mouse.y + camera.y;
             let hover = enemies.some(e => Math.hypot(e.x - mx, e.y - my) < 40) || (boss && Math.hypot(boss.x - mx, boss.y - my) < 70);
             
@@ -1092,7 +1091,6 @@
             }
         }
 
-        // --- УЛЬТА (ОРИГИНАЛ) ---
         function useUltimate() {
             if (currentHeroType === 'robot') { performRicochetUlt(); } else {
                 const aimAngle = Math.atan2(mouse.y - height/2, mouse.x - width/2);
@@ -1104,15 +1102,72 @@
                 }
             }
         }
+        
+        // --- ИСПРАВЛЕННАЯ УЛЬТА РОБОТА ---
         function performRicochetUlt() {
-            const targets = [...enemies]; if (targets.length === 0 && !boss) return;
-            let currentSource = { x: player.x, y: player.y }; let hits = 0; const maxHits = 4;
-            const baseDmg = 10 * (1 + player.damageLevel * 0.25); const ultDamage = baseDmg * 1.75; 
-            AudioEngine.play('ricochet'); triggerAiReaction("Робот врубил турбо-режим!"); screenShake = 25; 
+            const targets = [...enemies]; 
+            // Если есть босс, добавляем его в список целей
+            if (boss) targets.push(boss);
+            
+            if (targets.length === 0) return;
 
-            // Упрощенная логика для слияния с боссом
-            // ... (оставил твой старый код рикошета, добавил урон по боссу если он ближайший)
-            // Для краткости: рикошет работает как раньше.
+            let currentSource = { x: player.x, y: player.y }; 
+            let hits = 0; 
+            const maxHits = 4 + player.ultiLevel; // Улучшается с уровнем
+            const baseDmg = 10 * (1 + player.damageLevel * 0.25); 
+            const ultDamage = baseDmg * 1.75; 
+            
+            AudioEngine.play('ricochet'); 
+            triggerAiReaction("Робот врубил цепную молнию!"); 
+            screenShake = 25; 
+
+            let hitTargets = [];
+
+            for (let i = 0; i < maxHits; i++) {
+                let nearest = null;
+                let minDist = 9999;
+
+                // Ищем ближайшую цель, которую еще не били
+                targets.forEach(t => {
+                    if (hitTargets.includes(t)) return;
+                    const d = Math.hypot(t.x - currentSource.x, t.y - currentSource.y);
+                    if (d < 400 && d < minDist) { // Радиус отскока 400
+                        minDist = d;
+                        nearest = t;
+                    }
+                });
+
+                if (nearest) {
+                    hits++;
+                    hitTargets.push(nearest);
+                    
+                    // Рисуем линию
+                    ricochetLines.push({ 
+                        x1: currentSource.x, y1: currentSource.y, 
+                        x2: nearest.x, y2: nearest.y, 
+                        life: 1.0 
+                    });
+
+                    // Наносим урон
+                    nearest.hp -= ultDamage;
+                    nearest.flashTime = 10;
+                    nearest.stunned = 60; // Стан
+                    
+                    // Партиклы
+                    for(let k=0; k<5; k++) particles.push(new Particle(nearest.x, nearest.y, '#a855f7'));
+
+                    // Проверка на смерть
+                    if (nearest.hp <= 0) {
+                        if (nearest === boss) killBoss();
+                        else killEnemy(nearest);
+                    }
+
+                    // Переносим источник молнии к текущей цели
+                    currentSource = { x: nearest.x, y: nearest.y };
+                } else {
+                    break; // Больше некого бить
+                }
+            }
         }
         
         function buyAbility(type) {
@@ -1141,7 +1196,10 @@
             Assets.player = new PlayerSprite(currentHeroType); 
             document.getElementById('start-screen').classList.add('hidden'); document.getElementById('game-over').classList.add('hidden');
             document.getElementById('hud-layer').classList.remove('hidden'); document.getElementById('ai-chat-container').classList.remove('hidden'); 
+            
             gameState = 'PLAYING';
+            document.body.classList.remove('show-cursor'); // В ИГРЕ КУРСОР СКРЫТ
+
             player.x = 500; player.y = 500; player.lives = 3; player.maxLives = 3; player.invulnerable = 0;
             player.ammo = player.maxAmmo; player.isReloading = false; player.hasSword = false;
             kills = 0; isBossFight = false; isHardcore = false; boss = null;
@@ -1153,14 +1211,11 @@
             triggerAiReaction("Игра началась.");
         }
 
-        // --- 4. AI ЛОГИКА (ПОЛИНА) ---
-        // (Твой старый код AI чата)
+        // --- 4. AI ЛОГИКА ---
         chatInput.addEventListener('focus', () => { isChatting = true; }); chatInput.addEventListener('blur', () => { isChatting = false; });
         sendBtn.onclick = sendMessage; let isAiProcessing = false;
-        async function triggerAiReaction(context) { /* ... старый код ... */ }
-        async function sendMessage() { /* ... старый код ... */ }
-        
-        // Заглушка для AI чтобы не крашилось если сервера заняты
+        async function triggerAiReaction(context) { /* ... */ }
+        async function sendMessage() { /* ... */ }
         window.triggerAiReaction = function(c) { console.log("AI:", c); }
         
         draw();
