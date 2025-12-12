@@ -126,6 +126,8 @@
             </div>
         </div>
 
+        <button id="shop-btn" class="btn-retro pointer-events-auto absolute top-24 right-5" style="background-color: #a855f7; z-index: 30;">МАГАЗИН (C)</button>
+
         <div id="boss-ui">
             <div id="boss-name">ДРЕВНИЙ УЖАС</div>
             <div id="boss-hp-bar-bg"><div id="boss-hp-bar-fill"></div></div>
@@ -142,7 +144,6 @@
                 <div id="health-indicator" class="hidden w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white pixel-font text-xs"><span id="health-level-indicator">0</span></div>
                 <div id="ulti-indicator" class="hidden w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white pixel-font text-xs"><span id="ulti-level-indicator">0</span></div>
             </div>
-            <button id="shop-btn" class="btn-retro" style="background-color: #a855f7;">МАГАЗИН (C)</button>
         </div>
         
         <div id="ammo-container" class="hidden text-white pixel-font text-xs">
@@ -186,8 +187,8 @@
         </div>
     </div>
 
-   <div id="shop-modal" class="hidden fixed bottom-0 left-0 z-50 pointer-events-auto">
-    <div class="bg-gray-800 p-6 rounded-lg border-4 border-white max-w-md w-full m-4" style="max-height: 400px; overflow-y: auto;">
+   <div id="shop-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center pointer-events-auto bg-black bg-opacity-60">
+    <div class="bg-gray-800 p-6 rounded-lg border-4 border-white max-w-md w-full m-4" style="max-height: 80vh; overflow-y: auto;">
         <h2 class="text-3xl text-yellow-400 pixel-font mb-6 text-center">МАГАЗИН</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 <div class="bg-gray-700 p-4 rounded border-2 border-gray-600">
@@ -1122,12 +1123,10 @@
             }
         }
         function updateShopUI() {
-             // ... старый код магазина
              document.getElementById('speed-level').innerText = player.speedLevel;
              document.getElementById('damage-level').innerText = player.damageLevel;
              document.getElementById('health-level').innerText = player.healthLevel;
              document.getElementById('ulti-level').innerText = player.ultiLevel;
-             // ... кнопки обновляются как раньше
         }
         function applyAbilityEffects() {
             player.speed = player.baseSpeed * (1 + player.speedLevel * 0.2);
